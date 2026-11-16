@@ -1,0 +1,29 @@
+import { env, ensureEnvLoaded } from "../config/env";
+
+/** Every call to the BFF goes through here, so the base URL has one home. */
+export async function bffFetch(path: string, init?: RequestInit): Promise<Response> {
+  await ensureEnvLoaded();
+  return fetch(`${env.bffUrl}${path}`, init);
+}
+
+/** The one place the BFF's non-2xx answers become an exception. */
+export function assertOk(response: Response): void {
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+}
+
+/** Reads a JSON body, refusing anything else (e.g. an HTML error page). */
+export async function readJson<T>(response: Response): Promise<T> {
+  assertOk(response);
+
+  const contentType = response.headers.get("content-type");
+  if (!contentType || !contentType.includes("application/json")) {
+    const text = await response.text();
+    throw new Error(`Response is not JSON. Got: ${text.substring(0, 100)}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+export const TASK_PATH = "/api/task";

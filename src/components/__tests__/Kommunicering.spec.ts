@@ -1,0 +1,185 @@
+import { flushPromises } from "@vue/test-utils";
+import { describe, expect, it, vi } from "vitest";
+import { useKommuniceringStore } from "../../stores/KommuniceringStore";
+import {
+  HANDLAGGNING_ID,
+  anropsBody,
+  ersattning,
+  knapp,
+  mockResponse,
+  montera,
+  sattPortalToken,
+  stubFetch,
+  underlag,
+} from "../../utils/__tests__/testHelpers";
+
+type Wrapper = ReturnType<typeof montera>;
+
+function falt(wrapper: Wrapper, namn: string) {
+  return wrapper.find(`[name="${namn}-e-1"]`);
+}
+
+async function valjUtfall(wrapper: Wrapper, value: string) {
+  await wrapper.find(`input[type="radio"][value="${value}"]`).setValue(true);
+}
+
+async function fyllIMotivering(wrapper: Wrapper) {
+  await wrapper.find('textarea[name="motivering"]').setValue("Inget nytt från kunden.");
+}
+
+/** Waits for a click's chain of calls to settle on what the test expects. */
+async function klickaOchVanta(wrapper: Wrapper, text: string, settled: () => void) {
+  await knapp(wrapper, text)?.trigger("click");
+  await vi.waitFor(async () => {
+    await flushPromises();
+    settled();
+  });
+}
+
+describe("Kommunicering", () => {
+  it("loads the task and shows the kund and each ersättning", async () => {
+    const fetchMock = stubFetch(mockResponse({ body: underlag() }));
+    const wrapper = montera();
+    await flushPromises();
+
+    expect(fetchMock.mock.calls[0][0]).toBe("http://bff.test/api/task");
+    expect(wrapper.text()).toContain("Test Testsson");
+    expect(wrapper.text()).toContain("Vård av husdjur");
+    expect((falt(wrapper, "belopp").element as HTMLInputElement).value).toBe("1200");
+    expect((falt(wrapper, "from").element as HTMLInputElement).value).toBe("2026-10-01");
+  });
+
+  it("shows an error and no form when no handlaggning was passed", async () => {
+    const fetchMock = stubFetch();
+    const wrapper = montera(null);
+    await flushPromises();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain("Ingen handläggning angiven");
+    expect(wrapper.find("form").exists()).toBe(false);
+  });
+
+  it("offers no form when the load fails", async () => {
+    stubFetch(mockResponse({ ok: false, status: 500 }));
+    const wrapper = montera();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Kunde inte hämta uppgiftsdata");
+    expect(knapp(wrapper, "Spara")).toBeUndefined();
+  });
+
+  it("offers no form when there are no ersättningar", async () => {
+    stubFetch(mockResponse({ body: underlag([]) }));
+    const wrapper = montera();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("inga ersättningar");
+    expect(wrapper.find("form").exists()).toBe(false);
+  });
+
+  it("shows the avslagsanledning field only for Avslag", async () => {
+    stubFetch(mockResponse({ body: underlag() }));
+    const wrapper = montera();
+    await flushPromises();
+
+    expect(falt(wrapper, "avslagsanledning").exists()).toBe(false);
+    await valjUtfall(wrapper, "NEJ");
+    expect(falt(wrapper, "avslagsanledning").exists()).toBe(true);
+  });
+
+  it("refuses to save without a motivering", async () => {
+    const fetchMock = stubFetch(mockResponse({ body: underlag() }));
+    const wrapper = montera();
+    await flushPromises();
+
+    await knapp(wrapper, "Spara")?.trigger("click");
+    await flushPromises();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).toContain("Fyll i en motivering");
+  });
+
+  it("saves the edited values and confirms it until the next edit", async () => {
+    const fetchMock = stubFetch(mockResponse({ body: underlag() }), mockResponse({ status: 204 }));
+    const wrapper = montera();
+    await flushPromises();
+
+    await falt(wrapper, "belopp").setValue("900");
+    await fyllIMotivering(wrapper);
+    await klickaOchVanta(wrapper, "Spara", () => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    expect(anropsBody(fetchMock, 1)).toMatchObject({
+      handlaggningId: HANDLAGGNING_ID,
+      ersattningar: [{ ersattningId: "e-1", belopp: 900, beslutsutfall: null }],
+      motivering: "Inget nytt från kunden.",
+    });
+    expect(wrapper.text()).toContain("Uppgifterna är sparade");
+
+    await falt(wrapper, "belopp").setValue("950");
+    await flushPromises();
+    expect(wrapper.text()).not.toContain("Uppgifterna är sparade");
+  });
+
+  it("reports a missing beslutsutfall on Klarmarkera without calling the BFF", async () => {
+    const fetchMock = stubFetch(mockResponse({ body: underlag() }));
+    const wrapper = montera();
+    await flushPromises();
+
+    await fyllIMotivering(wrapper);
+    await knapp(wrapper, "Klarmarkera")?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Välj beslutsutfall");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves, completes and replaces the form with a confirmation", async () => {
+    sattPortalToken("handlaggare:abc");
+    const fetchMock = stubFetch(
+      mockResponse({ body: underlag([ersattning({ beslutsutfall: "JA" })]) }),
+      mockResponse({ status: 204 }),
+      mockResponse({ status: 204 }),
+    );
+    const wrapper = montera();
+    await flushPromises();
+
+    await fyllIMotivering(wrapper);
+    await klickaOchVanta(wrapper, "Klarmarkera", () =>
+      expect(wrapper.text()).toContain("uppgiften är klarmarkerad"),
+    );
+
+    expect(fetchMock.mock.calls.map((call) => (call[1] as RequestInit).method)).toEqual([
+      "POST",
+      "PATCH",
+      "POST",
+    ]);
+    expect(wrapper.find("form").exists()).toBe(false);
+  });
+
+  it("does not inherit saved state from a previous task on the shared store", async () => {
+    useKommuniceringStore().sparad = true;
+    stubFetch(mockResponse({ body: underlag() }));
+    montera();
+    await flushPromises();
+
+    expect(useKommuniceringStore().sparad).toBe(false);
+  });
+
+  it("fetches the uppgiftsbeskrivning when the tooltip opens, not when it closes", async () => {
+    const fetchMock = stubFetch(
+      mockResponse({ body: underlag() }),
+      mockResponse({ body: { beskrivning: "Hantera kommunicering från kund" } }),
+    );
+    const wrapper = montera();
+    await flushPromises();
+
+    wrapper.findComponent({ name: "FTooltip" }).vm.$emit("toggle", { isOpen: false });
+    await flushPromises();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    wrapper.findComponent({ name: "FTooltip" }).vm.$emit("toggle", { isOpen: true });
+    await flushPromises();
+    expect(fetchMock.mock.calls[1][0]).toBe("http://bff.test/api/uppgiftsbeskrivning");
+    expect(useKommuniceringStore().uppgiftsbeskrivning).toBe("Hantera kommunicering från kund");
+  });
+});

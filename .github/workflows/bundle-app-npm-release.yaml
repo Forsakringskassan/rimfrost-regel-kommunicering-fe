@@ -1,0 +1,12 @@
+name: Bundle NPM App Release
+
+on: [workflow_dispatch]
+
+jobs:
+  bundle-app-npm-release:
+    permissions:
+      contents: write
+      packages: write
+      pages: write
+      id-token: write
+    uses: Forsakringskassan/.github/.github/workflows/bundle-app-npm-release.yaml@cbc0db833d2d0584b3b0e3b7ed4fd27867b3f6ed # main

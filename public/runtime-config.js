@@ -1,0 +1,1 @@
+window.__REGEL_KOMMUNICERING_FE_ENV__ = {};
