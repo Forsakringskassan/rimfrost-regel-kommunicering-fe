@@ -17,7 +17,7 @@ export function tillRad(ersattning: Ersattning): ErsattningRad {
     berakningsgrund: String(ersattning.berakningsgrund),
     from: ersattning.from,
     tom: ersattning.tom,
-    beslutsutfall: ersattning.beslutsutfall ?? "",
+    beslutsutfall: ersattning.beslutsutfall ?? Beslutsutfall.FU,
     avslagsanledning: ersattning.avslagsanledning ?? "",
   };
 }
@@ -38,7 +38,7 @@ export function tillUpdateErsattning(rad: ErsattningRad): UpdateErsattning {
     omfattning_procent: Number.parseInt(rad.omfattningProcent.trim(), 10),
     belopp: Number.parseInt(rad.belopp.trim(), 10),
     berakningsgrund: Number.parseInt(rad.berakningsgrund.trim(), 10),
-    beslutsutfall: rad.beslutsutfall || null,
+    beslutsutfall: rad.beslutsutfall,
     avslagsanledning:
       rad.beslutsutfall === Beslutsutfall.NEJ && avslagsanledning ? avslagsanledning : null,
     from: rad.from.trim(),

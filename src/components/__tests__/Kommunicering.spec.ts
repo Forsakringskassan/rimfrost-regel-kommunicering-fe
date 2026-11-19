@@ -63,6 +63,37 @@ describe("Kommunicering", () => {
     expect(knapp(wrapper, "Ändra")).toBeUndefined();
   });
 
+  it("shows the beslutsutfall read-only until Ändra is clicked", async () => {
+    stubFetch(
+      mockResponse({
+        body: underlag([ersattning({ beslutsutfall: "NEJ", avslagsanledning: "Intyg saknas." })]),
+      }),
+    );
+    const wrapper = montera();
+    await flushPromises();
+
+    expect(wrapper.find('input[type="radio"][value="NEJ"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain("Avslag");
+    expect(wrapper.text()).toContain("Intyg saknas.");
+
+    await knapp(wrapper, "Ändra")?.trigger("click");
+
+    const nej = wrapper.find('input[type="radio"][value="NEJ"]');
+    expect((nej.element as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("shows FU when the BFF sends no beslutsutfall", async () => {
+    stubFetch(mockResponse({ body: underlag() }));
+    const wrapper = montera();
+    await flushPromises();
+
+    expect(wrapper.find(".kommunicering__ersattning").text()).toContain("FU");
+
+    await knapp(wrapper, "Ändra")?.trigger("click");
+    const fu = wrapper.find('input[type="radio"][value="FU"]');
+    expect((fu.element as HTMLInputElement).checked).toBe(true);
+  });
+
   it("puts the values back and locks the ersättning on Avbryt", async () => {
     stubFetch(mockResponse({ body: underlag() }));
     const wrapper = montera();
@@ -70,11 +101,14 @@ describe("Kommunicering", () => {
 
     await knapp(wrapper, "Ändra")?.trigger("click");
     await falt(wrapper, "belopp").setValue("900");
+    await valjUtfall(wrapper, "NEJ");
     await knapp(wrapper, "Avbryt")?.trigger("click");
 
     expect(falt(wrapper, "belopp").exists()).toBe(false);
     expect(wrapper.text()).toContain("1200 kr");
     expect(wrapper.text()).not.toContain("900 kr");
+    expect(wrapper.find(".kommunicering__ersattning").text()).toContain("FU");
+    expect(wrapper.text()).not.toContain("Avslag");
   });
 
   it("shows an error and no form when no handlaggning was passed", async () => {
@@ -110,6 +144,7 @@ describe("Kommunicering", () => {
     const wrapper = montera();
     await flushPromises();
 
+    await knapp(wrapper, "Ändra")?.trigger("click");
     expect(falt(wrapper, "avslagsanledning").exists()).toBe(false);
     await valjUtfall(wrapper, "NEJ");
     expect(falt(wrapper, "avslagsanledning").exists()).toBe(true);
@@ -139,7 +174,7 @@ describe("Kommunicering", () => {
 
     expect(fetchMock.mock.calls[1][0]).toBe(`http://bff.test/api/task/${HANDLAGGNING_ID}`);
     expect(anropsBody(fetchMock, 1)).toMatchObject({
-      ersattningar: [{ ersattningId: "e-1", belopp: 900, beslutsutfall: null }],
+      ersattningar: [{ ersattningId: "e-1", belopp: 900, beslutsutfall: "FU" }],
       motivering: "Inget nytt från kunden.",
     });
     expect(wrapper.text()).toContain("Uppgifterna är sparade");
@@ -151,19 +186,6 @@ describe("Kommunicering", () => {
     await falt(wrapper, "belopp").setValue("950");
     await flushPromises();
     expect(wrapper.text()).not.toContain("Uppgifterna är sparade");
-  });
-
-  it("reports a missing beslutsutfall on Klarmarkera without calling the BFF", async () => {
-    const fetchMock = stubFetch(mockResponse({ body: underlag() }));
-    const wrapper = montera();
-    await flushPromises();
-
-    await fyllIMotivering(wrapper);
-    await knapp(wrapper, "Klarmarkera")?.trigger("click");
-    await flushPromises();
-
-    expect(wrapper.text()).toContain("Välj beslutsutfall");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("reports a missing kommuniceringsutfall on Klarmarkera without calling the BFF", async () => {

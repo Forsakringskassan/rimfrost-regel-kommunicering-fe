@@ -14,10 +14,6 @@ describe("valideraForSpara", () => {
     expect(valideraForSpara(giltigtFormular())).toBeNull();
   });
 
-  it("does not require a beslutsutfall", () => {
-    expect(valideraForSpara(medRad({ beslutsutfall: "" }))).toBeNull();
-  });
-
   it("does not require a kommuniceringsutfall", () => {
     expect(valideraForSpara(giltigtFormular({ kommuniceringsutfall: "" }))).toBeNull();
   });
@@ -46,12 +42,6 @@ describe("valideraForSpara", () => {
 describe("valideraForKlarmarkering", () => {
   it("passes a complete form", () => {
     expect(valideraForKlarmarkering(giltigtFormular())).toBeNull();
-  });
-
-  it("requires a beslutsutfall on every ersättning", () => {
-    expect(valideraForKlarmarkering(medRad({ beslutsutfall: "" }))).toContain(
-      "Välj beslutsutfall",
-    );
   });
 
   it("requires a kommuniceringsutfall", () => {

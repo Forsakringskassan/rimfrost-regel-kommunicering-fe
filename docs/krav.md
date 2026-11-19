@@ -37,15 +37,16 @@ handläggarportalen.
 ### KOMF-FR-02 — Hantera ersättningar
 
 - **KOMF-FR-02.1** Handläggaren ska kunna ändra period, omfattning, belopp och beräkningsgrund
-  för varje ersättning. Värdena visas låsta tills handläggaren väljer att ändra ersättningen, och
+  för varje ersättning. Värdena, liksom beslutsutfall och avslagsanledning enligt KOMF-FR-02.2
+  och KOMF-FR-02.3, visas låsta tills handläggaren väljer att ändra ersättningen, och
   en påbörjad ändring ska kunna avbrytas så att värdena från före ändringen återställs. Efter ett
   lyckat sparande låses ersättningarna igen.
 - **KOMF-FR-02.2** Handläggaren ska kunna välja beslutsutfall (JA, NEJ, FU) för varje
-  ersättning.
+  ersättning. Varje ersättning har alltid ett beslutsutfall. Saknas det i underlaget används FU.
 - **KOMF-FR-02.3** Avslagsanledning ska kunna anges när beslutsutfallet är NEJ, och bara då.
 - **KOMF-FR-02.4** Handläggaren ska ange en motivering.
-- **KOMF-FR-02.5** Handläggaren ska kunna spara utan att slutföra, även innan beslutsutfall är
-  valt för alla ersättningar.
+- **KOMF-FR-02.5** Handläggaren ska kunna spara utan att slutföra, även innan utfall av
+  kommuniceringen är valt.
 - **KOMF-FR-02.6** Sparande kräver motivering, heltal för omfattning (0–100), belopp och
   beräkningsgrund, giltiga datum och en period som inte slutar innan den börjar.
 - **KOMF-FR-02.7** Ett lyckat sparande ska bekräftas, och bekräftelsen ska försvinna så snart
@@ -55,8 +56,8 @@ handläggarportalen.
 
 ### KOMF-FR-03 — Slutföra uppgiften
 
-- **KOMF-FR-03.1** Slutförande kräver allt som sparande kräver, plus beslutsutfall för varje
-  ersättning, avslagsanledning för varje NEJ och utfall av kommuniceringen.
+- **KOMF-FR-03.1** Slutförande kräver allt som sparande kräver, plus avslagsanledning för varje
+  NEJ och utfall av kommuniceringen.
 - **KOMF-FR-03.2** Ej sparade ändringar ska sparas innan uppgiften slutförs.
 - **KOMF-FR-03.3** Om sparandet misslyckas ska uppgiften inte slutföras.
 - **KOMF-FR-03.4** Slutförandet ska skickas med den inloggade handläggarens token. Saknas token,

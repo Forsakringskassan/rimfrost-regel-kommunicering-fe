@@ -275,12 +275,12 @@ describe("slutforKommunicering", () => {
   it("sends nothing when the form is incomplete", async () => {
     const fetchMock = stubFetch();
     const formular = giltigtFormular();
-    formular.ersattningar[0].beslutsutfall = "";
+    formular.ersattningar[0].beslutsutfall = "NEJ";
 
     expect(await slutforKommunicering(HANDLAGGNING_ID, formular)).toBe(
       KlarmarkeraResultat.OGILTIG,
     );
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(useKommuniceringStore().error).toContain("Välj beslutsutfall");
+    expect(useKommuniceringStore().error).toContain("avslagsanledning");
   });
 });

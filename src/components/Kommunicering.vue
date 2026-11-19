@@ -67,14 +67,17 @@ function handleTooltipToggle(event: { isOpen: boolean }): void {
 }
 
 /**
- * The ersättning's own values, which stay read-only until the handläggare asks
- * to change them. Beslutsutfall and avslagsanledning are not among them: they
- * are decided on every task, not corrected.
+ * The ersättning's own values, beslutsutfall included, which stay read-only
+ * until the handläggare asks to change them.
  */
-type Ersattningsvarden = Pick<
-  ErsattningRad,
-  "from" | "tom" | "omfattningProcent" | "belopp" | "berakningsgrund"
->;
+type Ersattningsvarden = Omit<ErsattningRad, "ersattningId" | "ersattningstyp">;
+
+function beslutsutfallText(rad: ErsattningRad): string {
+  return (
+    BESLUTSUTFALL_ALTERNATIV.find((alternativ) => alternativ.value === rad.beslutsutfall)
+      ?.label ?? rad.beslutsutfall
+  );
+}
 
 /**
  * The ersättningar open for editing, by id, each with its values from when
@@ -83,8 +86,8 @@ type Ersattningsvarden = Pick<
 const redigeras = reactive(new Map<string, Ersattningsvarden>());
 
 function borjaAndra(rad: ErsattningRad): void {
-  const { from, tom, omfattningProcent, belopp, berakningsgrund } = rad;
-  redigeras.set(rad.ersattningId, { from, tom, omfattningProcent, belopp, berakningsgrund });
+  const { ersattningId, ersattningstyp: _typ, ...varden } = rad;
+  redigeras.set(ersattningId, varden);
 }
 
 function avbrytAndring(rad: ErsattningRad): void {
@@ -95,7 +98,7 @@ function avbrytAndring(rad: ErsattningRad): void {
   redigeras.delete(rad.ersattningId);
 }
 
-/** Spara sits outside the form's validation flow: no beslutsutfall is needed. */
+/** Spara sits outside the form's validation flow: no kommuniceringsutfall is needed. */
 async function handleSpara(): Promise<void> {
   if (!handlaggningId) {
     return;
@@ -277,6 +280,16 @@ watch(
                 <template #default>{{ rad.berakningsgrund }} kr</template>
               </f-static-field>
             </div>
+            <div class="kommunicering__rad">
+              <f-static-field>
+                <template #label>Beslutsutfall</template>
+                <template #default>{{ beslutsutfallText(rad) }}</template>
+              </f-static-field>
+              <f-static-field v-if="rad.beslutsutfall === Beslutsutfall.NEJ">
+                <template #label>Avslagsanledning</template>
+                <template #default>{{ rad.avslagsanledning || "Ej angiven" }}</template>
+              </f-static-field>
+            </div>
           </template>
 
           <template v-else>
@@ -325,37 +338,36 @@ watch(
                 Beräkningsgrund (kr)
               </f-text-field>
             </div>
+
+            <f-fieldset
+              horizontal
+              :name="`beslutsutfall-${rad.ersattningId}`"
+            >
+              <template #label>Beslutsutfall</template>
+              <template #default="{ sharedName }">
+                <f-radio-field
+                  v-for="alternativ in BESLUTSUTFALL_ALTERNATIV"
+                  :key="alternativ.value"
+                  v-model="rad.beslutsutfall"
+                  :name="sharedName"
+                  :value="alternativ.value"
+                  :disabled="store.saving"
+                >
+                  {{ alternativ.label }}
+                </f-radio-field>
+              </template>
+            </f-fieldset>
+
+            <f-textarea-field
+              v-if="rad.beslutsutfall === Beslutsutfall.NEJ"
+              v-model="rad.avslagsanledning"
+              v-validation.required
+              :name="`avslagsanledning-${rad.ersattningId}`"
+              :disabled="store.saving"
+            >
+              Avslagsanledning
+            </f-textarea-field>
           </template>
-
-          <f-fieldset
-            v-validation.required
-            horizontal
-            :name="`beslutsutfall-${rad.ersattningId}`"
-          >
-            <template #label>Beslutsutfall</template>
-            <template #default="{ sharedName }">
-              <f-radio-field
-                v-for="alternativ in BESLUTSUTFALL_ALTERNATIV"
-                :key="alternativ.value"
-                v-model="rad.beslutsutfall"
-                :name="sharedName"
-                :value="alternativ.value"
-                :disabled="store.saving"
-              >
-                {{ alternativ.label }}
-              </f-radio-field>
-            </template>
-          </f-fieldset>
-
-          <f-textarea-field
-            v-if="rad.beslutsutfall === Beslutsutfall.NEJ"
-            v-model="rad.avslagsanledning"
-            v-validation.required
-            :name="`avslagsanledning-${rad.ersattningId}`"
-            :disabled="store.saving"
-          >
-            Avslagsanledning
-          </f-textarea-field>
         </section>
 
         <f-fieldset v-validation.required name="kommuniceringsutfall">

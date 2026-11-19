@@ -72,8 +72,8 @@ utfall och `slutforKommunicering` skickar det alltid före `done`.
 ### PATCH skriver om hela ersättningen
 
 Regeltjänsten sätter varje fält på ersättningen från requesten. Därför skickas alla fält
-tillbaka som formuläret håller dem, inte bara de ändrade. Saknat beslutsutfall skickas som
-`null`. Avslagsanledning skickas bara med `NEJ`, så text kvar från ett tidigare avslag inte följer
+tillbaka som formuläret håller dem, inte bara de ändrade. Beslutsutfall skickas alltid; saknas
+det i underlaget får ersättningen `FU` när formuläret byggs. Avslagsanledning skickas bara med `NEJ`, så text kvar från ett tidigare avslag inte följer
 med ett `JA`.
 
 ### Token
@@ -90,8 +90,8 @@ portalens Pinia-store `handlaggareStore` (`bearerToken`). Eftersom Pinia delas s
 
 `FValidationForm` sväljer en inskickning som inte validerar, och visar inget alls om portalens
 validerare inte når remoten. Därför körs `valideraForKlarmarkering` på knappens klick, och igen i
-`slutforKommunicering` innan något skickas. Spara kör `valideraForSpara`, som varken kräver
-beslutsutfall eller kommuniceringsutfall.
+`slutforKommunicering` innan något skickas. Spara kör `valideraForSpara`, som inte kräver
+kommuniceringsutfall.
 
 ### Statuskoder från slutförandet
 

@@ -3,7 +3,6 @@ import {
   KOMMUNICERINGSUTFALL_SAKNAS,
   MOTIVERING_SAKNAS,
   avslagsanledningSaknas,
-  beslutsutfallSaknas,
   ogiltigOmfattning,
   ogiltigtDatum,
   ogiltigtHeltal,
@@ -58,9 +57,8 @@ function valideraRadForSpara(rad: ErsattningRad): string | null {
 }
 
 /**
- * Spara asks for neither a beslutsutfall nor a kommuniceringsutfall: the PATCH
- * accepts a null beslutsutfall and does not carry the kommuniceringsutfall, so
- * a handläggare can put work away before deciding.
+ * Spara does not ask for a kommuniceringsutfall: the PATCH does not carry it,
+ * so a handläggare can put work away before deciding.
  */
 export function valideraForSpara(formular: KommuniceringFormular): string | null {
   for (const rad of formular.ersattningar) {
@@ -76,19 +74,17 @@ export function valideraForSpara(formular: KommuniceringFormular): string | null
 }
 
 /**
- * Klarmarkera additionally asks every ersättning for a beslutsutfall, an
- * avslagsanledning for every NEJ, and a kommuniceringsutfall: `done` closes the
- * task on what is registered, and answers 422 without a kommuniceringsutfall.
- * Checked in the order the fields appear.
+ * Klarmarkera additionally asks for an avslagsanledning for every NEJ, and a
+ * kommuniceringsutfall: `done` closes the task on what is registered, and
+ * answers 422 without a kommuniceringsutfall. Every ersättning always has a
+ * beslutsutfall, so there is nothing to ask there. Checked in the order the
+ * fields appear.
  */
 export function valideraForKlarmarkering(formular: KommuniceringFormular): string | null {
   for (const rad of formular.ersattningar) {
     const fel = valideraRadForSpara(rad);
     if (fel) {
       return fel;
-    }
-    if (!rad.beslutsutfall) {
-      return beslutsutfallSaknas(rad.ersattningstyp);
     }
     if (rad.beslutsutfall === Beslutsutfall.NEJ && !harVarde(rad.avslagsanledning)) {
       return avslagsanledningSaknas(rad.ersattningstyp);

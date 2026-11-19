@@ -28,10 +28,6 @@ export const MOTIVERING_SAKNAS = "Fyll i en motivering.";
 /** `done` answers 422 until a kommuniceringsutfall is registered. */
 export const KOMMUNICERINGSUTFALL_SAKNAS = "Välj utfall av kommuniceringen.";
 
-export function beslutsutfallSaknas(typ: string): string {
-  return `Välj beslutsutfall för ersättningen ${typ}.`;
-}
-
 export function avslagsanledningSaknas(typ: string): string {
   return `Fyll i avslagsanledning för ersättningen ${typ}.`;
 }

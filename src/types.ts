@@ -24,6 +24,7 @@ export interface Ersattning {
   omfattning_procent: number;
   belopp: number;
   berakningsgrund: number;
+  /** Always set by the BFF; tillRad falls back to FU should it ever be missing. */
   beslutsutfall?: Beslutsutfall | null;
   avslagsanledning?: string | null;
   /** ISO date, YYYY-MM-DD. */
@@ -43,7 +44,7 @@ export interface UpdateErsattning {
   omfattning_procent: number;
   belopp: number;
   berakningsgrund: number;
-  beslutsutfall: Beslutsutfall | null;
+  beslutsutfall: Beslutsutfall;
   avslagsanledning: string | null;
   from: string;
   tom: string;
@@ -99,8 +100,7 @@ export interface ErsattningRad {
   berakningsgrund: string;
   from: string;
   tom: string;
-  /** Empty until the handläggare has picked one. */
-  beslutsutfall: Beslutsutfall | "";
+  beslutsutfall: Beslutsutfall;
   avslagsanledning: string;
 }
 

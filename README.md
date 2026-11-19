@@ -122,8 +122,8 @@ Every call sends `Authorization: Bearer <token>`.
 `utfall` is `KundAccepterat`, `AccepteratBestridande` or `NekatBestridande`. The rule service
 answers `done` with 422 until one is registered.
 
-`Spara` only PATCHes the ersättningar, so work can be put away before every beslutsutfall and the
-kommuniceringsutfall are set. `Klarmarkera` validates the whole form, PATCHes unless the form is
+Every ersättning always has a beslutsutfall; one the BFF leaves out becomes `FU`. `Spara` only
+PATCHes the ersättningar, so work can be put away before the kommuniceringsutfall is set. `Klarmarkera` validates the whole form, PATCHes unless the form is
 already saved, registers the kommuniceringsutfall, then completes. A failed step stops the
 sequence before completion. The kommuniceringsutfall is not part of the GET response, so the
 form always starts without one and `Klarmarkera` always sends it.

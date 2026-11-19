@@ -12,9 +12,14 @@ describe("tillRad", () => {
       berakningsgrund: "400",
       from: "2026-10-01",
       tom: "2026-10-03",
-      beslutsutfall: "",
+      beslutsutfall: "FU",
       avslagsanledning: "",
     });
+  });
+
+  it("falls back to FU when the BFF sends no beslutsutfall", () => {
+    expect(tillRad(ersattning({ beslutsutfall: null })).beslutsutfall).toBe("FU");
+    expect(tillRad(ersattning({ beslutsutfall: undefined })).beslutsutfall).toBe("FU");
   });
 
   it("keeps an already registered beslutsutfall and avslagsanledning", () => {
@@ -41,12 +46,6 @@ describe("tillPatchRequest", () => {
       ],
       motivering: "Kunden har inte inkommit med något nytt.",
     });
-  });
-
-  it("sends a missing beslutsutfall as null", () => {
-    const formular = giltigtFormular();
-    formular.ersattningar[0].beslutsutfall = "";
-    expect(tillPatchRequest(formular).ersattningar[0].beslutsutfall).toBeNull();
   });
 
   it("sends the avslagsanledning only with NEJ", () => {
