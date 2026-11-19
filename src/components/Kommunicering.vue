@@ -21,8 +21,8 @@ import { slutforKommunicering } from "../utils/slutforKommunicering";
 import { sparaKommunicering } from "../utils/sparaKommunicering";
 import { valideraForKlarmarkering, valideraForSpara } from "../utils/validering";
 import { INGA_ERSATTNINGAR, INGEN_HANDLAGGNING } from "../meddelanden";
-import { Beslutsutfall, KlarmarkeraResultat } from "../types";
-import type { KommuniceringFormular } from "../types";
+import { Beslutsutfall, KlarmarkeraResultat, Kommuniceringsutfall } from "../types";
+import type { ErsattningRad, KommuniceringFormular } from "../types";
 
 const { handlaggningId } = defineProps<{
   handlaggningId?: string | null;
@@ -32,7 +32,11 @@ ensureValidatorsRegistered();
 
 const store = useKommuniceringStore();
 
-const formular = reactive<KommuniceringFormular>({ ersattningar: [], motivering: "" });
+const formular = reactive<KommuniceringFormular>({
+  ersattningar: [],
+  motivering: "",
+  kommuniceringsutfall: "",
+});
 /** The form is shown only once there is real underlag behind it. */
 const underlagLaddat = ref(false);
 const klar = ref(false);
@@ -47,6 +51,12 @@ const BESLUTSUTFALL_ALTERNATIV = [
   { value: Beslutsutfall.FU, label: "FU" },
 ];
 
+const KOMMUNICERINGSUTFALL_ALTERNATIV = [
+  { value: Kommuniceringsutfall.KUND_ACCEPTERAT, label: "Kunden har accepterat" },
+  { value: Kommuniceringsutfall.ACCEPTERAT_BESTRIDANDE, label: "Bestridandet accepteras" },
+  { value: Kommuniceringsutfall.NEKAT_BESTRIDANDE, label: "Bestridandet nekas" },
+];
+
 // FTooltip emits toggle on close as well as on open; only an open with nothing
 // fetched yet (or a failed earlier attempt) fetches.
 function handleTooltipToggle(event: { isOpen: boolean }): void {
@@ -54,6 +64,35 @@ function handleTooltipToggle(event: { isOpen: boolean }): void {
     return;
   }
   fetchUppgiftsbeskrivning();
+}
+
+/**
+ * The ersättning's own values, which stay read-only until the handläggare asks
+ * to change them. Beslutsutfall and avslagsanledning are not among them: they
+ * are decided on every task, not corrected.
+ */
+type Ersattningsvarden = Pick<
+  ErsattningRad,
+  "from" | "tom" | "omfattningProcent" | "belopp" | "berakningsgrund"
+>;
+
+/**
+ * The ersättningar open for editing, by id, each with its values from when
+ * editing began so Avbryt can put them back.
+ */
+const redigeras = reactive(new Map<string, Ersattningsvarden>());
+
+function borjaAndra(rad: ErsattningRad): void {
+  const { from, tom, omfattningProcent, belopp, berakningsgrund } = rad;
+  redigeras.set(rad.ersattningId, { from, tom, omfattningProcent, belopp, berakningsgrund });
+}
+
+function avbrytAndring(rad: ErsattningRad): void {
+  const ursprung = redigeras.get(rad.ersattningId);
+  if (ursprung) {
+    Object.assign(rad, ursprung);
+  }
+  redigeras.delete(rad.ersattningId);
 }
 
 /** Spara sits outside the form's validation flow: no beslutsutfall is needed. */
@@ -66,7 +105,10 @@ async function handleSpara(): Promise<void> {
     store.error = valideringsfel;
     return;
   }
-  await sparaKommunicering(handlaggningId, formular);
+  // Once saved, the changes are what is registered; nothing is left to undo.
+  if (await sparaKommunicering(handlaggningId, formular)) {
+    redigeras.clear();
+  }
 }
 
 /**
@@ -110,6 +152,8 @@ watch(
     underlagLaddat.value = false;
     formular.ersattningar = [];
     formular.motivering = "";
+    formular.kommuniceringsutfall = "";
+    redigeras.clear();
 
     if (!id) {
       store.error = INGEN_HANDLAGGNING;
@@ -188,53 +232,100 @@ watch(
           class="kommunicering__ersattning"
           :aria-label="`Ersättning ${rad.ersattningstyp}`"
         >
-          <h3 class="kommunicering__rubrik">{{ rad.ersattningstyp }}</h3>
-
-          <div class="kommunicering__rad">
-            <f-text-field
-              v-model="rad.from"
-              v-validation.required.date
-              :name="`from-${rad.ersattningId}`"
+          <div class="kommunicering__huvud">
+            <h3 class="kommunicering__rubrik">{{ rad.ersattningstyp }}</h3>
+            <f-button
+              v-if="redigeras.has(rad.ersattningId)"
+              type="button"
+              variant="tertiary"
+              size="small"
               :disabled="store.saving"
+              @click="avbrytAndring(rad)"
             >
-              Från och med
-            </f-text-field>
-            <f-text-field
-              v-model="rad.tom"
-              v-validation.required.date
-              :name="`tom-${rad.ersattningId}`"
+              Avbryt<span class="sr-only"> ändring av {{ rad.ersattningstyp }}</span>
+            </f-button>
+            <f-button
+              v-else
+              type="button"
+              variant="tertiary"
+              size="small"
               :disabled="store.saving"
+              @click="borjaAndra(rad)"
             >
-              Till och med
-            </f-text-field>
+              Ändra<span class="sr-only"> {{ rad.ersattningstyp }}</span>
+            </f-button>
           </div>
 
-          <div class="kommunicering__rad">
-            <f-text-field
-              v-model="rad.omfattningProcent"
-              v-validation.required.integer
-              :name="`omfattning-${rad.ersattningId}`"
-              :disabled="store.saving"
-            >
-              Omfattning (%)
-            </f-text-field>
-            <f-text-field
-              v-model="rad.belopp"
-              v-validation.required.integer
-              :name="`belopp-${rad.ersattningId}`"
-              :disabled="store.saving"
-            >
-              Belopp (kr)
-            </f-text-field>
-            <f-text-field
-              v-model="rad.berakningsgrund"
-              v-validation.required.integer
-              :name="`berakningsgrund-${rad.ersattningId}`"
-              :disabled="store.saving"
-            >
-              Beräkningsgrund (kr)
-            </f-text-field>
-          </div>
+          <template v-if="!redigeras.has(rad.ersattningId)">
+            <div class="kommunicering__rad">
+              <f-static-field>
+                <template #label>Period</template>
+                <template #default>{{ rad.from }} – {{ rad.tom }}</template>
+              </f-static-field>
+            </div>
+            <div class="kommunicering__rad">
+              <f-static-field>
+                <template #label>Omfattning</template>
+                <template #default>{{ rad.omfattningProcent }} %</template>
+              </f-static-field>
+              <f-static-field>
+                <template #label>Belopp</template>
+                <template #default>{{ rad.belopp }} kr</template>
+              </f-static-field>
+              <f-static-field>
+                <template #label>Beräkningsgrund</template>
+                <template #default>{{ rad.berakningsgrund }} kr</template>
+              </f-static-field>
+            </div>
+          </template>
+
+          <template v-else>
+            <div class="kommunicering__rad">
+              <f-text-field
+                v-model="rad.from"
+                v-validation.required.date
+                :name="`from-${rad.ersattningId}`"
+                :disabled="store.saving"
+              >
+                Från och med
+              </f-text-field>
+              <f-text-field
+                v-model="rad.tom"
+                v-validation.required.date
+                :name="`tom-${rad.ersattningId}`"
+                :disabled="store.saving"
+              >
+                Till och med
+              </f-text-field>
+            </div>
+
+            <div class="kommunicering__rad">
+              <f-text-field
+                v-model="rad.omfattningProcent"
+                v-validation.required.integer
+                :name="`omfattning-${rad.ersattningId}`"
+                :disabled="store.saving"
+              >
+                Omfattning (%)
+              </f-text-field>
+              <f-text-field
+                v-model="rad.belopp"
+                v-validation.required.integer
+                :name="`belopp-${rad.ersattningId}`"
+                :disabled="store.saving"
+              >
+                Belopp (kr)
+              </f-text-field>
+              <f-text-field
+                v-model="rad.berakningsgrund"
+                v-validation.required.integer
+                :name="`berakningsgrund-${rad.ersattningId}`"
+                :disabled="store.saving"
+              >
+                Beräkningsgrund (kr)
+              </f-text-field>
+            </div>
+          </template>
 
           <f-fieldset
             v-validation.required
@@ -266,6 +357,22 @@ watch(
             Avslagsanledning
           </f-textarea-field>
         </section>
+
+        <f-fieldset v-validation.required name="kommuniceringsutfall">
+          <template #label>Utfall av kommuniceringen</template>
+          <template #default="{ sharedName }">
+            <f-radio-field
+              v-for="alternativ in KOMMUNICERINGSUTFALL_ALTERNATIV"
+              :key="alternativ.value"
+              v-model="formular.kommuniceringsutfall"
+              :name="sharedName"
+              :value="alternativ.value"
+              :disabled="store.saving"
+            >
+              {{ alternativ.label }}
+            </f-radio-field>
+          </template>
+        </f-fieldset>
 
         <f-textarea-field
           v-model="formular.motivering"
@@ -320,6 +427,13 @@ watch(
   padding: 1rem 1.25rem;
   border: 1px solid #ccc;
   border-radius: 0.35rem;
+}
+
+.kommunicering__huvud {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .kommunicering__rubrik {

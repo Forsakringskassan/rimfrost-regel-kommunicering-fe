@@ -46,12 +46,8 @@ export function tillUpdateErsattning(rad: ErsattningRad): UpdateErsattning {
   };
 }
 
-export function tillPatchRequest(
-  handlaggningId: string,
-  formular: KommuniceringFormular,
-): PatchTaskRequest {
+export function tillPatchRequest(formular: KommuniceringFormular): PatchTaskRequest {
   return {
-    handlaggningId,
     ersattningar: formular.ersattningar.map(tillUpdateErsattning),
     motivering: formular.motivering.trim(),
   };

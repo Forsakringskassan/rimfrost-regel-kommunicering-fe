@@ -43,6 +43,12 @@ export function stubFetch(...responses: ReturnType<typeof mockResponse>[]) {
   return fetchMock;
 }
 
+/** The Authorization header of the n:th fetch call, or null without one. */
+export function anropsToken(fetchMock: ReturnType<typeof stubFetch>, index: number): string | null {
+  const init = fetchMock.mock.calls[index]?.[1] as RequestInit | undefined;
+  return new Headers(init?.headers).get("Authorization");
+}
+
 /** The parsed JSON body of the n:th fetch call. */
 export function anropsBody(fetchMock: ReturnType<typeof stubFetch>, index: number): unknown {
   const init = fetchMock.mock.calls[index]?.[1] as RequestInit | undefined;
@@ -91,6 +97,7 @@ export function giltigtFormular(
       },
     ],
     motivering: "Kunden har inte inkommit med något nytt.",
+    kommuniceringsutfall: "KundAccepterat",
     ...overrides,
   };
 }

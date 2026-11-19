@@ -1,5 +1,6 @@
 import { FDate } from "@fkui/date";
 import {
+  KOMMUNICERINGSUTFALL_SAKNAS,
   MOTIVERING_SAKNAS,
   avslagsanledningSaknas,
   beslutsutfallSaknas,
@@ -57,8 +58,9 @@ function valideraRadForSpara(rad: ErsattningRad): string | null {
 }
 
 /**
- * Spara does not ask for a beslutsutfall: the PATCH accepts null, so a
- * handläggare can put work away before deciding.
+ * Spara asks for neither a beslutsutfall nor a kommuniceringsutfall: the PATCH
+ * accepts a null beslutsutfall and does not carry the kommuniceringsutfall, so
+ * a handläggare can put work away before deciding.
  */
 export function valideraForSpara(formular: KommuniceringFormular): string | null {
   for (const rad of formular.ersattningar) {
@@ -74,8 +76,10 @@ export function valideraForSpara(formular: KommuniceringFormular): string | null
 }
 
 /**
- * Klarmarkera additionally asks every ersättning for a beslutsutfall, and an
- * avslagsanledning for every NEJ: `done` closes the task on what is registered.
+ * Klarmarkera additionally asks every ersättning for a beslutsutfall, an
+ * avslagsanledning for every NEJ, and a kommuniceringsutfall: `done` closes the
+ * task on what is registered, and answers 422 without a kommuniceringsutfall.
+ * Checked in the order the fields appear.
  */
 export function valideraForKlarmarkering(formular: KommuniceringFormular): string | null {
   for (const rad of formular.ersattningar) {
@@ -89,6 +93,9 @@ export function valideraForKlarmarkering(formular: KommuniceringFormular): strin
     if (rad.beslutsutfall === Beslutsutfall.NEJ && !harVarde(rad.avslagsanledning)) {
       return avslagsanledningSaknas(rad.ersattningstyp);
     }
+  }
+  if (!formular.kommuniceringsutfall) {
+    return KOMMUNICERINGSUTFALL_SAKNAS;
   }
   if (!harVarde(formular.motivering)) {
     return MOTIVERING_SAKNAS;

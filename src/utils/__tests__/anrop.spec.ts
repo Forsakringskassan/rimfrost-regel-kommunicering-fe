@@ -4,11 +4,13 @@ import { KlarmarkeraResultat } from "../../types";
 import { fetchKommunicering } from "../fetchKommunicering";
 import { fetchUppgiftsbeskrivning } from "../fetchUppgiftsbeskrivning";
 import { klarmarkeraKommunicering } from "../klarmarkeraKommunicering";
+import { registreraKommuniceringsutfall } from "../registreraKommuniceringsutfall";
 import { slutforKommunicering } from "../slutforKommunicering";
 import { sparaKommunicering } from "../sparaKommunicering";
 import {
   HANDLAGGNING_ID,
   anropsBody,
+  anropsToken,
   giltigtFormular,
   mockResponse,
   sattPortalToken,
@@ -17,19 +19,35 @@ import {
 } from "./testHelpers";
 
 describe("fetchKommunicering", () => {
-  it("POSTs the handlaggningId to /api/task and stores the kund", async () => {
+  it("GETs /api/task/{handlaggningId} and stores the kund", async () => {
     const fetchMock = stubFetch(mockResponse({ body: underlag() }));
 
     const data = await fetchKommunicering(HANDLAGGNING_ID);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://bff.test/api/task",
-      expect.objectContaining({ method: "POST" }),
+      `http://bff.test/api/task/${HANDLAGGNING_ID}`,
+      expect.objectContaining({ method: "GET" }),
     );
-    expect(anropsBody(fetchMock, 0)).toEqual({ handlaggningId: HANDLAGGNING_ID });
+    expect((fetchMock.mock.calls[0][1] as RequestInit).body).toBeUndefined();
     expect(data?.ersattningar).toHaveLength(1);
     expect(useKommuniceringStore().kund?.fornamn).toBe("Test");
     expect(useKommuniceringStore().loading).toBe(false);
+  });
+
+  it("sends the portal's token", async () => {
+    sattPortalToken("handlaggare:abc");
+    const fetchMock = stubFetch(mockResponse({ body: underlag() }));
+
+    await fetchKommunicering(HANDLAGGNING_ID);
+
+    expect(anropsToken(fetchMock, 0)).toBe("Bearer handlaggare:abc");
+  });
+
+  it("reports a refused token as behörighet", async () => {
+    stubFetch(mockResponse({ ok: false, status: 401 }));
+
+    expect(await fetchKommunicering(HANDLAGGNING_ID)).toBeNull();
+    expect(useKommuniceringStore().error).toContain("behörighet");
   });
 
   it("returns null and sets an error when the BFF fails", async () => {
@@ -80,18 +98,18 @@ describe("fetchUppgiftsbeskrivning", () => {
 });
 
 describe("sparaKommunicering", () => {
-  it("PATCHes /api/task and marks the form saved", async () => {
+  it("PATCHes /api/task/{handlaggningId} and marks the form saved", async () => {
     const fetchMock = stubFetch(mockResponse({ status: 204 }));
 
     expect(await sparaKommunicering(HANDLAGGNING_ID, giltigtFormular())).toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://bff.test/api/task",
+      `http://bff.test/api/task/${HANDLAGGNING_ID}`,
       expect.objectContaining({ method: "PATCH" }),
     );
     expect(anropsBody(fetchMock, 0)).toMatchObject({
-      handlaggningId: HANDLAGGNING_ID,
       motivering: "Kunden har inte inkommit med något nytt.",
     });
+    expect(anropsBody(fetchMock, 0)).not.toHaveProperty("handlaggningId");
     expect(useKommuniceringStore().sparad).toBe(true);
   });
 
@@ -101,6 +119,48 @@ describe("sparaKommunicering", () => {
     expect(await sparaKommunicering(HANDLAGGNING_ID, giltigtFormular())).toBe(false);
     expect(useKommuniceringStore().error).toContain("Kunde inte spara");
     expect(useKommuniceringStore().sparad).toBe(false);
+  });
+
+  it("reports a refused token as behörighet", async () => {
+    stubFetch(mockResponse({ ok: false, status: 403 }));
+
+    expect(await sparaKommunicering(HANDLAGGNING_ID, giltigtFormular())).toBe(false);
+    expect(useKommuniceringStore().error).toContain("behörighet");
+  });
+});
+
+describe("registreraKommuniceringsutfall", () => {
+  it("PATCHes the utfall with the token", async () => {
+    sattPortalToken("handlaggare:abc");
+    const fetchMock = stubFetch(mockResponse({ status: 204 }));
+
+    expect(await registreraKommuniceringsutfall(HANDLAGGNING_ID, "NekatBestridande")).toBe(
+      KlarmarkeraResultat.KLAR,
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://bff.test/api/task/${HANDLAGGNING_ID}/kommuniceringsutfall`,
+      expect.objectContaining({ method: "PATCH" }),
+    );
+    expect(anropsBody(fetchMock, 0)).toEqual({ utfall: "NekatBestridande" });
+    expect(anropsToken(fetchMock, 0)).toBe("Bearer handlaggare:abc");
+  });
+
+  it("maps 401 to OBEHORIG", async () => {
+    stubFetch(mockResponse({ ok: false, status: 401 }));
+
+    expect(await registreraKommuniceringsutfall(HANDLAGGNING_ID, "KundAccepterat")).toBe(
+      KlarmarkeraResultat.OBEHORIG,
+    );
+    expect(useKommuniceringStore().error).toContain("behörighet");
+  });
+
+  it("maps an upstream error to FEL", async () => {
+    stubFetch(mockResponse({ ok: false, status: 500 }));
+
+    expect(await registreraKommuniceringsutfall(HANDLAGGNING_ID, "KundAccepterat")).toBe(
+      KlarmarkeraResultat.FEL,
+    );
+    expect(useKommuniceringStore().error).toContain("Kunde inte registrera utfallet");
   });
 });
 
@@ -116,9 +176,9 @@ describe("klarmarkeraKommunicering", () => {
 
     expect(resultat).toBe(KlarmarkeraResultat.KLAR);
     const init = fetchMock.mock.calls[0][1] as RequestInit;
-    expect(fetchMock.mock.calls[0][0]).toBe("http://bff.test/api/task/done");
-    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer handlaggare:abc");
-    expect(anropsBody(fetchMock, 0)).toEqual({ handlaggningId: HANDLAGGNING_ID });
+    expect(fetchMock.mock.calls[0][0]).toBe(`http://bff.test/api/task/${HANDLAGGNING_ID}/done`);
+    expect(anropsToken(fetchMock, 0)).toBe("Bearer handlaggare:abc");
+    expect(init.body).toBeUndefined();
     expect((lyssnare.mock.calls[0][0] as CustomEvent).detail).toEqual({
       handlaggningId: HANDLAGGNING_ID,
     });
@@ -149,28 +209,36 @@ describe("klarmarkeraKommunicering", () => {
 });
 
 describe("slutforKommunicering", () => {
-  it("saves, then completes", async () => {
+  it("saves, registers the kommuniceringsutfall, then completes", async () => {
     sattPortalToken("handlaggare:abc");
-    const fetchMock = stubFetch(mockResponse({ status: 204 }), mockResponse({ status: 204 }));
+    const fetchMock = stubFetch(
+      mockResponse({ status: 204 }),
+      mockResponse({ status: 204 }),
+      mockResponse({ status: 204 }),
+    );
 
     expect(await slutforKommunicering(HANDLAGGNING_ID, giltigtFormular())).toBe(
       KlarmarkeraResultat.KLAR,
     );
-    expect(fetchMock.mock.calls.map((call) => (call[1] as RequestInit).method)).toEqual([
-      "PATCH",
-      "POST",
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      `http://bff.test/api/task/${HANDLAGGNING_ID}`,
+      `http://bff.test/api/task/${HANDLAGGNING_ID}/kommuniceringsutfall`,
+      `http://bff.test/api/task/${HANDLAGGNING_ID}/done`,
     ]);
+    expect(anropsBody(fetchMock, 1)).toEqual({ utfall: "KundAccepterat" });
   });
 
   it("skips the save when the form is already saved", async () => {
     sattPortalToken("handlaggare:abc");
     useKommuniceringStore().sparad = true;
-    const fetchMock = stubFetch(mockResponse({ status: 204 }));
+    const fetchMock = stubFetch(mockResponse({ status: 204 }), mockResponse({ status: 204 }));
 
     await slutforKommunicering(HANDLAGGNING_ID, giltigtFormular());
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe("http://bff.test/api/task/done");
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      `http://bff.test/api/task/${HANDLAGGNING_ID}/kommuniceringsutfall`,
+      `http://bff.test/api/task/${HANDLAGGNING_ID}/done`,
+    ]);
   });
 
   it("does not complete when the save fails", async () => {
@@ -181,6 +249,27 @@ describe("slutforKommunicering", () => {
       KlarmarkeraResultat.FEL,
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not complete when the kommuniceringsutfall is refused", async () => {
+    sattPortalToken("handlaggare:abc");
+    useKommuniceringStore().sparad = true;
+    const fetchMock = stubFetch(mockResponse({ ok: false, status: 500 }));
+
+    expect(await slutforKommunicering(HANDLAGGNING_ID, giltigtFormular())).toBe(
+      KlarmarkeraResultat.FEL,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends nothing without a kommuniceringsutfall", async () => {
+    const fetchMock = stubFetch();
+
+    expect(
+      await slutforKommunicering(HANDLAGGNING_ID, giltigtFormular({ kommuniceringsutfall: "" })),
+    ).toBe(KlarmarkeraResultat.OGILTIG);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(useKommuniceringStore().error).toContain("Välj utfall av kommuniceringen");
   });
 
   it("sends nothing when the form is incomplete", async () => {

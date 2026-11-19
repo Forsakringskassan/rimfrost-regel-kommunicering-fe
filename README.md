@@ -1,19 +1,19 @@
 # rimfrost-regel-kommunicering-fe
 
 Micro frontend for the kommunicering task. The handläggare reviews the ersättningar on a
-handläggning, adjusts them if needed, sets a beslutsutfall for each, writes a motivering and
-completes the task. It is loaded into `rimfrost-portal-handlaggare` via Module Federation.
+handläggning, adjusts them if needed, sets a beslutsutfall for each, picks the outcome of the
+kommunicering, writes a motivering and completes the task. It is loaded into `rimfrost-portal-handlaggare` via Module Federation.
 
 It talks only to `rimfrost-regel-kommunicering-bff`, which fronts the
 `rimfrost-regel-kommunicering` rule service.
 
 ```
-[Portal (host)] ──Module Federation──> [This app] ──REST──> [Kommunicering BFF :9009] ──> [Rule service]
+[Portal (host)] ──Module Federation──> [This app] ──REST──> [Kommunicering BFF :9005] ──> [Rule service]
 ```
 
 ## Running it
 
-You need Node 22+ and the BFF on port 9009.
+You need Node 22+ and the BFF on port 9005.
 
 ```bash
 npm ci
@@ -22,7 +22,7 @@ npm run dev              # http://localhost:3034
 ```
 
 With `VITE_BFF_URL` left empty the app calls relative `/api/...` paths and Vite's dev proxy
-forwards them to `http://localhost:9009`. Same origin, so there is nothing to configure for
+forwards them to `http://localhost:9005`. Same origin, so there is nothing to configure for
 CORS. If you point `VITE_BFF_URL` at an absolute URL instead, add this app's origin to the BFF:
 
 ```bash
@@ -31,12 +31,12 @@ CORS_ORIGINS=http://localhost:3034 ./mvnw quarkus:dev
 
 Standalone there is no portal, so set `VITE_DEV_HANDLAGGNING_ID` to a handlaggningId with an
 open kommunicering task, and `VITE_DEV_BEARER_TOKEN` to any token the BFF accepts (the portal's
-dev tokens look like `<typId>:<varde>`). Without a token, Klarmarkera stops with a
-behörighet message.
+dev tokens look like `<typId>:<varde>`). Without a token, the calls are refused and the app
+shows a behörighet message.
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Dev server on 3034 |
+| `npm run dev` | Dev server on 3034, proxying `/api` to the BFF |
 | `npm run build` | Type-check and build to `dist/` |
 | `npm run preview` | Build, then serve the result on 3034 |
 | `npm test` | Vitest in watch mode |
@@ -66,10 +66,12 @@ task is completed.
 
 ### The bearer token
 
-The BFF requires an `Authorization` header on `POST /api/task/done`. The portal does not pass a
-token as a prop, so the app reads `bearerToken` from the portal's `handlaggareStore` through the
-shared Pinia instance (see `src/utils/bearerToken.ts`). If the portal renames that store or
-field, Klarmarkera fails with a behörighet message rather than silently.
+The rule service checks the handläggare's identity and access to the task on every call, so
+every call to the BFF carries an `Authorization` header, which the BFF passes on. The portal does
+not pass a token as a prop, so the app reads `bearerToken` from the portal's `handlaggareStore`
+through the shared Pinia instance (see `src/utils/bearerToken.ts`). If the portal renames that
+store or field, the calls are refused and the app shows a behörighet message rather than failing
+silently.
 
 ## Configuration
 
@@ -107,16 +109,28 @@ its host.
 
 ## What it calls
 
+Every call sends `Authorization: Bearer <token>`.
+
 | Method | Path | Body | Purpose |
 |---|---|---|---|
-| POST | `/api/task` | `{handlaggningId}` | Load kund and ersättningar |
-| PATCH | `/api/task` | `{handlaggningId, ersattningar, motivering}` | Save ersättningar and motivering |
-| POST | `/api/task/done` | `{handlaggningId}` + `Authorization` | Complete the task |
+| GET | `/api/task/{handlaggningId}` | | Load kund and ersättningar |
+| PATCH | `/api/task/{handlaggningId}` | `{ersattningar, motivering}` | Save ersättningar and motivering |
+| PATCH | `/api/task/{handlaggningId}/kommuniceringsutfall` | `{utfall}` | Register the outcome of the kommunicering |
+| POST | `/api/task/{handlaggningId}/done` | none | Complete the task |
 | GET | `/api/uppgiftsbeskrivning` | | Help text for the tooltip |
 
-`Spara` only PATCHes, so work can be put away before every beslutsutfall is set. `Klarmarkera`
-validates the whole form, PATCHes unless the form is already saved, then completes. A failed
-save stops it before completion.
+`utfall` is `KundAccepterat`, `AccepteratBestridande` or `NekatBestridande`. The rule service
+answers `done` with 422 until one is registered.
+
+`Spara` only PATCHes the ersättningar, so work can be put away before every beslutsutfall and the
+kommuniceringsutfall are set. `Klarmarkera` validates the whole form, PATCHes unless the form is
+already saved, registers the kommuniceringsutfall, then completes. A failed step stops the
+sequence before completion. The kommuniceringsutfall is not part of the GET response, so the
+form always starts without one and `Klarmarkera` always sends it.
+
+The BFF also has `PATCH /api/task/{handlaggningId}/uppgiftskommentar`. The app does not call it:
+the rule service already stores the motivering as the uppgift's kommentar, and that endpoint
+writes the same field.
 
 The PATCH rewrites every field on each ersättning, so all fields are sent back as the form holds
 them, and an avslagsanledning is sent only with `NEJ`.

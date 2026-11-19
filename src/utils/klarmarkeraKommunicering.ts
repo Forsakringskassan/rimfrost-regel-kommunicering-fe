@@ -1,13 +1,16 @@
-import { TASK_PATH, bffFetch } from "./bffClient";
+import { arObehorig, bffFetch, taskPath } from "./bffClient";
 import { hamtaBearerToken } from "./bearerToken";
 import { useKommuniceringStore } from "../stores/KommuniceringStore";
 import { KLARMARKERA_MISSLYCKADES, OBEHORIG } from "../meddelanden";
 import { KlarmarkeraResultat } from "../types";
 
 /**
- * POST /api/task/done — closes the OUL task. The BFF requires an
- * Authorization header here and answers 401 without one, so a missing token is
+ * POST /api/task/{handlaggningId}/done — closes the OUL task. bffFetch sends
+ * the token, which the BFF passes on to the rule service. A missing token is
  * reported up front instead of being sent to be refused.
+ *
+ * The rule service answers 422 when no kommuniceringsutfall is registered, so
+ * call this after registreraKommuniceringsutfall, as slutforKommunicering does.
  *
  * On success the host portal gets a `task-done` event on `window` so it can
  * drop the task from the handläggare's list.
@@ -18,29 +21,21 @@ export async function klarmarkeraKommunicering(
   const store = useKommuniceringStore();
   store.error = null;
 
-  const token = hamtaBearerToken();
-  if (!token) {
+  if (!hamtaBearerToken()) {
     store.error = OBEHORIG;
     return KlarmarkeraResultat.OBEHORIG;
   }
 
   store.saving = true;
   try {
-    const response = await bffFetch(`${TASK_PATH}/done`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ handlaggningId }),
-    });
+    const response = await bffFetch(`${taskPath(handlaggningId)}/done`, { method: "POST" });
 
     if (response.ok) {
       window.dispatchEvent(new CustomEvent("task-done", { detail: { handlaggningId } }));
       return KlarmarkeraResultat.KLAR;
     }
 
-    if (response.status === 401 || response.status === 403) {
+    if (arObehorig(response)) {
       store.error = OBEHORIG;
       return KlarmarkeraResultat.OBEHORIG;
     }

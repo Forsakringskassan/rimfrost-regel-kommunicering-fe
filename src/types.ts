@@ -49,11 +49,32 @@ export interface UpdateErsattning {
   tom: string;
 }
 
-/** Body of PATCH /api/task. The BFF adds nothing; it forwards the rest. */
+/**
+ * Body of PATCH /api/task/{handlaggningId}. The BFF adds nothing; it forwards
+ * the body as it is.
+ */
 export interface PatchTaskRequest {
-  handlaggningId: string;
   ersattningar: UpdateErsattning[];
   motivering: string;
+}
+
+/**
+ * Mirrors `Kommuniceringsutfall` in
+ * rimfrost-framework-regel-kommuniceringsutfall-openapi. The rule service
+ * answers `done` with 422 until one is registered. AccepteratBestridande gives
+ * the regel's utfall NEJ, the other two JA.
+ */
+export const Kommuniceringsutfall = {
+  NEKAT_BESTRIDANDE: "NekatBestridande",
+  ACCEPTERAT_BESTRIDANDE: "AccepteratBestridande",
+  KUND_ACCEPTERAT: "KundAccepterat",
+} as const;
+
+export type Kommuniceringsutfall = (typeof Kommuniceringsutfall)[keyof typeof Kommuniceringsutfall];
+
+/** Body of PATCH /api/task/{handlaggningId}/kommuniceringsutfall. */
+export interface PatchKommuniceringsutfallRequest {
+  utfall: Kommuniceringsutfall;
 }
 
 /**
@@ -86,13 +107,18 @@ export interface ErsattningRad {
 export interface KommuniceringFormular {
   ersattningar: ErsattningRad[];
   motivering: string;
+  /**
+   * Empty until the handläggare has picked one. GetDataResponse does not carry
+   * it, so it always starts empty.
+   */
+  kommuniceringsutfall: Kommuniceringsutfall | "";
 }
 
-/** Outcome of POST /api/task/done. */
+/** Outcome of POST /api/task/{handlaggningId}/done. */
 export const KlarmarkeraResultat = {
   /** 204: the task is closed. */
   KLAR: "KLAR",
-  /** 401, or no token to send in the first place. */
+  /** 401 or 403 on any call, or no token to send in the first place. */
   OBEHORIG: "OBEHORIG",
   /** Rejected by this app's own checks before anything was sent. */
   OGILTIG: "OGILTIG",

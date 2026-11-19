@@ -18,6 +18,10 @@ describe("valideraForSpara", () => {
     expect(valideraForSpara(medRad({ beslutsutfall: "" }))).toBeNull();
   });
 
+  it("does not require a kommuniceringsutfall", () => {
+    expect(valideraForSpara(giltigtFormular({ kommuniceringsutfall: "" }))).toBeNull();
+  });
+
   it("requires a motivering", () => {
     expect(valideraForSpara(giltigtFormular({ motivering: "   " }))).toContain("motivering");
   });
@@ -47,6 +51,12 @@ describe("valideraForKlarmarkering", () => {
   it("requires a beslutsutfall on every ersättning", () => {
     expect(valideraForKlarmarkering(medRad({ beslutsutfall: "" }))).toContain(
       "Välj beslutsutfall",
+    );
+  });
+
+  it("requires a kommuniceringsutfall", () => {
+    expect(valideraForKlarmarkering(giltigtFormular({ kommuniceringsutfall: "" }))).toContain(
+      "Välj utfall av kommuniceringen",
     );
   });
 

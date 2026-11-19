@@ -10,9 +10,10 @@ import { env } from "../config/env";
 const PORTAL_STORE_ID = "handlaggareStore";
 
 /**
- * The token for POST /api/task/done, which the BFF refuses with 401 without
- * one. Falls back to VITE_DEV_BEARER_TOKEN in standalone dev, where there is no
- * portal and so no handlaggareStore. Null when neither has a token.
+ * The token bffFetch sends on every call; the rule service refuses any call
+ * without one with 401. Falls back to VITE_DEV_BEARER_TOKEN in
+ * standalone dev, where there is no portal and so no handlaggareStore. Null
+ * when neither has a token.
  */
 export function hamtaBearerToken(): string | null {
   const portalState = getActivePinia()?.state.value[PORTAL_STORE_ID] as

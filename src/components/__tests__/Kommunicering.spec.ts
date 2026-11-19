@@ -42,11 +42,39 @@ describe("Kommunicering", () => {
     const wrapper = montera();
     await flushPromises();
 
-    expect(fetchMock.mock.calls[0][0]).toBe("http://bff.test/api/task");
+    expect(fetchMock.mock.calls[0][0]).toBe(`http://bff.test/api/task/${HANDLAGGNING_ID}`);
     expect(wrapper.text()).toContain("Test Testsson");
     expect(wrapper.text()).toContain("Vård av husdjur");
+    expect(wrapper.text()).toContain("1200 kr");
+    expect(wrapper.text()).toContain("2026-10-01 – 2026-10-03");
+  });
+
+  it("shows the ersättning read-only until Ändra is clicked", async () => {
+    stubFetch(mockResponse({ body: underlag() }));
+    const wrapper = montera();
+    await flushPromises();
+
+    expect(falt(wrapper, "belopp").exists()).toBe(false);
+
+    await knapp(wrapper, "Ändra")?.trigger("click");
+
     expect((falt(wrapper, "belopp").element as HTMLInputElement).value).toBe("1200");
     expect((falt(wrapper, "from").element as HTMLInputElement).value).toBe("2026-10-01");
+    expect(knapp(wrapper, "Ändra")).toBeUndefined();
+  });
+
+  it("puts the values back and locks the ersättning on Avbryt", async () => {
+    stubFetch(mockResponse({ body: underlag() }));
+    const wrapper = montera();
+    await flushPromises();
+
+    await knapp(wrapper, "Ändra")?.trigger("click");
+    await falt(wrapper, "belopp").setValue("900");
+    await knapp(wrapper, "Avbryt")?.trigger("click");
+
+    expect(falt(wrapper, "belopp").exists()).toBe(false);
+    expect(wrapper.text()).toContain("1200 kr");
+    expect(wrapper.text()).not.toContain("900 kr");
   });
 
   it("shows an error and no form when no handlaggning was passed", async () => {
@@ -104,17 +132,22 @@ describe("Kommunicering", () => {
     const wrapper = montera();
     await flushPromises();
 
+    await knapp(wrapper, "Ändra")?.trigger("click");
     await falt(wrapper, "belopp").setValue("900");
     await fyllIMotivering(wrapper);
     await klickaOchVanta(wrapper, "Spara", () => expect(fetchMock).toHaveBeenCalledTimes(2));
 
+    expect(fetchMock.mock.calls[1][0]).toBe(`http://bff.test/api/task/${HANDLAGGNING_ID}`);
     expect(anropsBody(fetchMock, 1)).toMatchObject({
-      handlaggningId: HANDLAGGNING_ID,
       ersattningar: [{ ersattningId: "e-1", belopp: 900, beslutsutfall: null }],
       motivering: "Inget nytt från kunden.",
     });
     expect(wrapper.text()).toContain("Uppgifterna är sparade");
+    // A save locks the ersättning again, with the saved value.
+    expect(falt(wrapper, "belopp").exists()).toBe(false);
+    expect(wrapper.text()).toContain("900 kr");
 
+    await knapp(wrapper, "Ändra")?.trigger("click");
     await falt(wrapper, "belopp").setValue("950");
     await flushPromises();
     expect(wrapper.text()).not.toContain("Uppgifterna är sparade");
@@ -133,26 +166,47 @@ describe("Kommunicering", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("reports a missing kommuniceringsutfall on Klarmarkera without calling the BFF", async () => {
+    const fetchMock = stubFetch(
+      mockResponse({ body: underlag([ersattning({ beslutsutfall: "JA" })]) }),
+    );
+    const wrapper = montera();
+    await flushPromises();
+
+    await fyllIMotivering(wrapper);
+    await knapp(wrapper, "Klarmarkera")?.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Välj utfall av kommuniceringen");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("saves, completes and replaces the form with a confirmation", async () => {
     sattPortalToken("handlaggare:abc");
     const fetchMock = stubFetch(
       mockResponse({ body: underlag([ersattning({ beslutsutfall: "JA" })]) }),
       mockResponse({ status: 204 }),
       mockResponse({ status: 204 }),
+      mockResponse({ status: 204 }),
     );
     const wrapper = montera();
     await flushPromises();
 
+    await valjUtfall(wrapper, "AccepteratBestridande");
     await fyllIMotivering(wrapper);
     await klickaOchVanta(wrapper, "Klarmarkera", () =>
       expect(wrapper.text()).toContain("uppgiften är klarmarkerad"),
     );
 
-    expect(fetchMock.mock.calls.map((call) => (call[1] as RequestInit).method)).toEqual([
-      "POST",
-      "PATCH",
-      "POST",
+    expect(
+      fetchMock.mock.calls.map((call) => `${(call[1] as RequestInit).method} ${call[0]}`),
+    ).toEqual([
+      `GET http://bff.test/api/task/${HANDLAGGNING_ID}`,
+      `PATCH http://bff.test/api/task/${HANDLAGGNING_ID}`,
+      `PATCH http://bff.test/api/task/${HANDLAGGNING_ID}/kommuniceringsutfall`,
+      `POST http://bff.test/api/task/${HANDLAGGNING_ID}/done`,
     ]);
+    expect(anropsBody(fetchMock, 2)).toEqual({ utfall: "AccepteratBestridande" });
     expect(wrapper.find("form").exists()).toBe(false);
   });
 

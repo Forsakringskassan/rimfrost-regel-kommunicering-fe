@@ -9,6 +9,10 @@ import { afterEach, beforeEach, vi } from "vitest";
   RUNTIME_BFF_URL: "http://bff.test",
 };
 
+// A developer's local .env may set VITE_DEV_BEARER_TOKEN, which every call now
+// sends. Tests seed a token through the portal store, or have none at all.
+vi.stubEnv("VITE_DEV_BEARER_TOKEN", "");
+
 beforeEach(() => {
   setActivePinia(createPinia());
   // The helpers log the failure paths on purpose; the suite exercises them.

@@ -1,12 +1,11 @@
-import { TASK_PATH, bffFetch, readJson } from "./bffClient";
+import { arObehorig, bffFetch, readJson, taskPath } from "./bffClient";
 import { useKommuniceringStore } from "../stores/KommuniceringStore";
-import { HAMTNING_MISSLYCKADES } from "../meddelanden";
+import { HAMTNING_MISSLYCKADES, OBEHORIG } from "../meddelanden";
 import type { GetDataResponse } from "../types";
 
 /**
- * POST /api/task — the BFF's read, which answers with the rule service's
- * GetDataResponse. It is a POST only because the BFF takes the handlaggningId
- * in the body.
+ * GET /api/task/{handlaggningId} — the BFF's read, which answers with the rule
+ * service's GetDataResponse. A GET all the way: frontend → BFF → rule service.
  *
  * Puts the kund in the store and returns the whole response for the component
  * to build its form from, or null when the load failed or was superseded.
@@ -23,12 +22,17 @@ export async function fetchKommunicering(
   store.loading = true;
 
   try {
-    const response = await bffFetch(TASK_PATH, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ handlaggningId }),
+    const response = await bffFetch(taskPath(handlaggningId), {
+      method: "GET",
+      headers: { Accept: "application/json" },
       signal,
     });
+    if (arObehorig(response)) {
+      if (!signal?.aborted) {
+        store.error = OBEHORIG;
+      }
+      return null;
+    }
     const data = await readJson<GetDataResponse>(response);
     if (signal?.aborted) {
       return null;

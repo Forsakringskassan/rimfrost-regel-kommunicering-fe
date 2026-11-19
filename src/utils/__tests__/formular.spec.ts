@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { tillPatchRequest, tillRad } from "../formular";
-import { HANDLAGGNING_ID, ersattning, giltigtFormular } from "./testHelpers";
+import { ersattning, giltigtFormular } from "./testHelpers";
 
 describe("tillRad", () => {
   it("turns numbers into the strings the fields bind and null into empty", () => {
@@ -26,8 +26,7 @@ describe("tillRad", () => {
 
 describe("tillPatchRequest", () => {
   it("builds the BFF's PATCH body with every UpdateErsattning field", () => {
-    expect(tillPatchRequest(HANDLAGGNING_ID, giltigtFormular())).toEqual({
-      handlaggningId: HANDLAGGNING_ID,
+    expect(tillPatchRequest(giltigtFormular())).toEqual({
       ersattningar: [
         {
           ersattningId: "e-1",
@@ -47,16 +46,16 @@ describe("tillPatchRequest", () => {
   it("sends a missing beslutsutfall as null", () => {
     const formular = giltigtFormular();
     formular.ersattningar[0].beslutsutfall = "";
-    expect(tillPatchRequest(HANDLAGGNING_ID, formular).ersattningar[0].beslutsutfall).toBeNull();
+    expect(tillPatchRequest(formular).ersattningar[0].beslutsutfall).toBeNull();
   });
 
   it("sends the avslagsanledning only with NEJ", () => {
     const formular = giltigtFormular();
     formular.ersattningar[0].avslagsanledning = "Kvar från ett tidigare avslag";
-    expect(tillPatchRequest(HANDLAGGNING_ID, formular).ersattningar[0].avslagsanledning).toBeNull();
+    expect(tillPatchRequest(formular).ersattningar[0].avslagsanledning).toBeNull();
 
     formular.ersattningar[0].beslutsutfall = "NEJ";
-    expect(tillPatchRequest(HANDLAGGNING_ID, formular).ersattningar[0].avslagsanledning).toBe(
+    expect(tillPatchRequest(formular).ersattningar[0].avslagsanledning).toBe(
       "Kvar från ett tidigare avslag",
     );
   });

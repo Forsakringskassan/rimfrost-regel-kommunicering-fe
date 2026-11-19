@@ -51,7 +51,7 @@ export default defineConfig({
     // this proxy forwards to the BFF — same origin, so no CORS setup needed.
     proxy: {
       "/api": {
-        target: "http://localhost:9009",
+        target: "http://localhost:9005",
         changeOrigin: true,
       },
     },

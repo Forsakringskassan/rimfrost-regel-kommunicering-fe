@@ -11,14 +11,22 @@ export const SPARA_MISSLYCKADES = "Kunde inte spara uppgifterna. Försök igen s
 
 export const KLARMARKERA_MISSLYCKADES = "Kunde inte klarmarkera uppgiften. Försök igen senare.";
 
+export const KOMMUNICERINGSUTFALL_MISSLYCKADES =
+  "Kunde inte registrera utfallet av kommuniceringen. Försök igen senare.";
+
+/** Every call carries the token, so any of them can be refused. */
 export const OBEHORIG =
-  "Du saknar behörighet att klarmarkera uppgiften. Logga in på nytt och försök igen.";
+  "Du saknar behörighet att hantera uppgiften. Logga in på nytt och försök igen.";
 
 /**
  * Required by PATCH: the BFF answers 400 without it, and the rule service
- * stores it as the uppgift's kommentar.
+ * stores it as the uppgift's kommentar. That is why the form has no separate
+ * uppgiftskommentar: PATCH /uppgiftskommentar writes the same field.
  */
 export const MOTIVERING_SAKNAS = "Fyll i en motivering.";
+
+/** `done` answers 422 until a kommuniceringsutfall is registered. */
+export const KOMMUNICERINGSUTFALL_SAKNAS = "Välj utfall av kommuniceringen.";
 
 export function beslutsutfallSaknas(typ: string): string {
   return `Välj beslutsutfall för ersättningen ${typ}.`;

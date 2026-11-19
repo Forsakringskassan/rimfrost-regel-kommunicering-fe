@@ -4,7 +4,8 @@
 
 Kommunicering Frontend är en mikrofrontend för handläggarens kommuniceringsuppgift. Handläggaren
 går igenom ersättningarna på en handläggning, justerar dem vid behov, sätter beslutsutfall för
-var och en, motiverar och slutför uppgiften, direkt i handläggarportalen.
+var och en, anger utfallet av kommuniceringen, motiverar och slutför uppgiften, direkt i
+handläggarportalen.
 
 ---
 
@@ -36,7 +37,9 @@ var och en, motiverar och slutför uppgiften, direkt i handläggarportalen.
 ### KOMF-FR-02 — Hantera ersättningar
 
 - **KOMF-FR-02.1** Handläggaren ska kunna ändra period, omfattning, belopp och beräkningsgrund
-  för varje ersättning.
+  för varje ersättning. Värdena visas låsta tills handläggaren väljer att ändra ersättningen, och
+  en påbörjad ändring ska kunna avbrytas så att värdena från före ändringen återställs. Efter ett
+  lyckat sparande låses ersättningarna igen.
 - **KOMF-FR-02.2** Handläggaren ska kunna välja beslutsutfall (JA, NEJ, FU) för varje
   ersättning.
 - **KOMF-FR-02.3** Avslagsanledning ska kunna anges när beslutsutfallet är NEJ, och bara då.
@@ -47,18 +50,28 @@ var och en, motiverar och slutför uppgiften, direkt i handläggarportalen.
   beräkningsgrund, giltiga datum och en period som inte slutar innan den börjar.
 - **KOMF-FR-02.7** Ett lyckat sparande ska bekräftas, och bekräftelsen ska försvinna så snart
   något fält ändras.
+- **KOMF-FR-02.8** Handläggaren ska kunna välja utfall av kommuniceringen: kunden har accepterat,
+  bestridandet accepteras eller bestridandet nekas. Sparande kräver inte att utfall är valt.
 
 ### KOMF-FR-03 — Slutföra uppgiften
 
 - **KOMF-FR-03.1** Slutförande kräver allt som sparande kräver, plus beslutsutfall för varje
-  ersättning och avslagsanledning för varje NEJ.
+  ersättning, avslagsanledning för varje NEJ och utfall av kommuniceringen.
 - **KOMF-FR-03.2** Ej sparade ändringar ska sparas innan uppgiften slutförs.
 - **KOMF-FR-03.3** Om sparandet misslyckas ska uppgiften inte slutföras.
 - **KOMF-FR-03.4** Slutförandet ska skickas med den inloggade handläggarens token. Saknas token,
   eller avvisas den, ska handläggaren få ett eget besked om behörighet.
+- **KOMF-FR-03.7** Utfallet av kommuniceringen ska registreras innan uppgiften slutförs. Om
+  registreringen misslyckas ska uppgiften inte slutföras.
 - **KOMF-FR-03.5** Om slutförandet misslyckas ska uppgiften förbli öppen för ett nytt försök.
 - **KOMF-FR-03.6** Vid lyckat slutförande ska handläggarportalen meddelas, så att uppgiften kan
   tas bort ur handläggarens lista.
+
+### KOMF-FR-04 — Behörighet
+
+- **KOMF-FR-04.1** Alla anrop till BFF:en ska skickas med den inloggade handläggarens token.
+- **KOMF-FR-04.2** Om ett anrop nekas för att behörighet saknas ska handläggaren få ett besked om
+  behörighet, inte ett generellt fel.
 
 ---
 
