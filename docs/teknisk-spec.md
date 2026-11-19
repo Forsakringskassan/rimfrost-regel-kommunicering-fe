@@ -91,7 +91,8 @@ portalens Pinia-store `handlaggareStore` (`bearerToken`). Eftersom Pinia delas s
 `FValidationForm` sväljer en inskickning som inte validerar, och visar inget alls om portalens
 validerare inte når remoten. Därför körs `valideraForKlarmarkering` på knappens klick, och igen i
 `slutforKommunicering` innan något skickas. Spara kör `valideraForSpara`, som inte kräver
-kommuniceringsutfall.
+kommuniceringsutfall men kräver avslagsanledning för varje NEJ. Spara går inte genom
+`FValidationForm`, så fältets egen obligatoriska validering räcker inte där.
 
 ### Statuskoder från slutförandet
 

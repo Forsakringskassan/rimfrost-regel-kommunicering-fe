@@ -162,6 +162,111 @@ describe("Kommunicering", () => {
     expect(wrapper.text()).toContain("Fyll i en motivering");
   });
 
+  it("refuses to save an Avslag without an avslagsanledning and keeps the row open", async () => {
+    const fetchMock = stubFetch(
+      mockResponse({
+        body: underlag([ersattning({ beslutsutfall: "NEJ", avslagsanledning: "Intyg saknas." })]),
+      }),
+    );
+    const wrapper = montera();
+    await flushPromises();
+
+    await knapp(wrapper, "Ändra")?.trigger("click");
+    await falt(wrapper, "avslagsanledning").setValue("");
+    await fyllIMotivering(wrapper);
+    await knapp(wrapper, "Spara")?.trigger("click");
+    await flushPromises();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(wrapper.text()).toContain("Fyll i avslagsanledning");
+    expect(falt(wrapper, "avslagsanledning").exists()).toBe(true);
+    expect(wrapper.text()).not.toContain("Ej angiven");
+  });
+
+  it("shows the error next to the buttons while the form is showing", async () => {
+    stubFetch(mockResponse({ body: underlag() }));
+    const wrapper = montera();
+    await flushPromises();
+
+    await knapp(wrapper, "Spara")?.trigger("click");
+    await flushPromises();
+
+    const felrutor = wrapper.findAll(".kommunicering__felmeddelande");
+    expect(felrutor).toHaveLength(1);
+    expect(felrutor[0].text()).toContain("Fyll i en motivering");
+    expect(felrutor[0].element.nextElementSibling?.classList).toContain("kommunicering__knappar");
+    expect(wrapper.text().match(/Fyll i en motivering/g)).toHaveLength(1);
+    expect(document.activeElement).toBe(felrutor[0].element);
+  });
+
+  it("shows the error at the top, with the form's own error list, when that list stops Klarmarkera", async () => {
+    const fetchMock = stubFetch(mockResponse({ body: underlag() }));
+    const wrapper = montera();
+    await flushPromises();
+
+    await knapp(wrapper, "Klarmarkera")?.trigger("click");
+    await vi.waitFor(async () => {
+      await flushPromises();
+      expect(wrapper.find(".kommunicering__felmeddelande-overst").exists()).toBe(true);
+    });
+
+    expect(wrapper.find(".kommunicering__felmeddelande-overst").text()).toContain(
+      "Välj utfall av kommuniceringen",
+    );
+    expect(wrapper.find(".kommunicering__felmeddelande").exists()).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("moves the error to the buttons and focuses it when only this app's checks stop Klarmarkera", async () => {
+    // A locked NEJ row without an avslagsanledning has no field for the
+    // form's own validation to catch.
+    const fetchMock = stubFetch(
+      mockResponse({ body: underlag([ersattning({ beslutsutfall: "NEJ" })]) }),
+    );
+    const wrapper = montera();
+    await flushPromises();
+
+    await valjUtfall(wrapper, "KundAccepterat");
+    await fyllIMotivering(wrapper);
+    await knapp(wrapper, "Klarmarkera")?.trigger("click");
+    await vi.waitFor(async () => {
+      await flushPromises();
+      expect(wrapper.find(".kommunicering__felmeddelande").exists()).toBe(true);
+    });
+
+    expect(wrapper.find(".kommunicering__felmeddelande").text()).toContain("avslagsanledning");
+    expect(wrapper.find(".kommunicering__felmeddelande-overst").exists()).toBe(false);
+    expect(document.activeElement).toBe(wrapper.find(".kommunicering__felmeddelande").element);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("locks the rows after Klarmarkera saves, even when a later step fails", async () => {
+    sattPortalToken("handlaggare:abc");
+    const fetchMock = stubFetch(
+      mockResponse({ body: underlag([ersattning({ beslutsutfall: "JA" })]) }),
+      mockResponse({ status: 204 }),
+      mockResponse({ ok: false, status: 500 }),
+    );
+    const wrapper = montera();
+    await flushPromises();
+
+    await knapp(wrapper, "Ändra")?.trigger("click");
+    await falt(wrapper, "belopp").setValue("900");
+    await valjUtfall(wrapper, "KundAccepterat");
+    await fyllIMotivering(wrapper);
+    await klickaOchVanta(wrapper, "Klarmarkera", () =>
+      expect(fetchMock).toHaveBeenCalledTimes(3),
+    );
+
+    expect(wrapper.find("form").exists()).toBe(true);
+    expect(falt(wrapper, "belopp").exists()).toBe(false);
+    expect(knapp(wrapper, "Avbryt")).toBeUndefined();
+    expect(wrapper.text()).toContain("900 kr");
+    await vi.waitFor(() =>
+      expect(document.activeElement).toBe(wrapper.find(".kommunicering__felmeddelande").element),
+    );
+  });
+
   it("saves the edited values and confirms it until the next edit", async () => {
     const fetchMock = stubFetch(mockResponse({ body: underlag() }), mockResponse({ status: 204 }));
     const wrapper = montera();

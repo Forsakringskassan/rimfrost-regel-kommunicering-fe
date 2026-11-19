@@ -31,7 +31,11 @@ function arIsoDatum(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) && FDate.fromIso(trimmed).isValid();
 }
 
-/** Everything PATCH needs: every UpdateErsattning field parses, and a motivering. */
+/**
+ * Everything PATCH needs: every UpdateErsattning field parses, and every NEJ
+ * has an avslagsanledning. Without that check Spara would save an avslag with
+ * no reason and lock the row on it.
+ */
 function valideraRadForSpara(rad: ErsattningRad): string | null {
   const typ = rad.ersattningstyp;
   const omfattning = rad.omfattningProcent.trim();
@@ -52,6 +56,9 @@ function valideraRadForSpara(rad: ErsattningRad): string | null {
   }
   if (FDate.fromIso(rad.tom.trim()).isBefore(rad.from.trim())) {
     return omvandPeriod(typ);
+  }
+  if (rad.beslutsutfall === Beslutsutfall.NEJ && !harVarde(rad.avslagsanledning)) {
+    return avslagsanledningSaknas(typ);
   }
   return null;
 }
@@ -74,20 +81,15 @@ export function valideraForSpara(formular: KommuniceringFormular): string | null
 }
 
 /**
- * Klarmarkera additionally asks for an avslagsanledning for every NEJ, and a
- * kommuniceringsutfall: `done` closes the task on what is registered, and
- * answers 422 without a kommuniceringsutfall. Every ersättning always has a
- * beslutsutfall, so there is nothing to ask there. Checked in the order the
- * fields appear.
+ * Klarmarkera additionally asks for a kommuniceringsutfall: `done` answers 422
+ * without one. Every ersättning always has a beslutsutfall, so there is
+ * nothing to ask there. Checked in the order the fields appear.
  */
 export function valideraForKlarmarkering(formular: KommuniceringFormular): string | null {
   for (const rad of formular.ersattningar) {
     const fel = valideraRadForSpara(rad);
     if (fel) {
       return fel;
-    }
-    if (rad.beslutsutfall === Beslutsutfall.NEJ && !harVarde(rad.avslagsanledning)) {
-      return avslagsanledningSaknas(rad.ersattningstyp);
     }
   }
   if (!formular.kommuniceringsutfall) {

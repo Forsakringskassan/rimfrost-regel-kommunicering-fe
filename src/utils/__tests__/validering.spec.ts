@@ -34,6 +34,16 @@ describe("valideraForSpara", () => {
     expect(valideraForSpara(medRad(overrides))).toContain(forvantat);
   });
 
+  it("requires an avslagsanledning for NEJ", () => {
+    expect(
+      valideraForSpara(medRad({ beslutsutfall: "NEJ", avslagsanledning: " " })),
+    ).toContain("avslagsanledning");
+  });
+
+  it("does not require an avslagsanledning for JA", () => {
+    expect(valideraForSpara(medRad({ beslutsutfall: "JA", avslagsanledning: "" }))).toBeNull();
+  });
+
   it("accepts a one-day period", () => {
     expect(valideraForSpara(medRad({ from: "2026-10-01", tom: "2026-10-01" }))).toBeNull();
   });
