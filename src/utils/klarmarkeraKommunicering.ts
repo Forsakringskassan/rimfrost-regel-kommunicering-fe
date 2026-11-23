@@ -1,5 +1,5 @@
 import { arObehorig, bffFetch, taskPath } from "./bffClient";
-import { hamtaBearerToken } from "./bearerToken";
+import { hamtaAuthorization } from "./bearerToken";
 import { useKommuniceringStore } from "../stores/KommuniceringStore";
 import { KLARMARKERA_MISSLYCKADES, OBEHORIG } from "../meddelanden";
 import { KlarmarkeraResultat } from "../types";
@@ -21,7 +21,7 @@ export async function klarmarkeraKommunicering(
   const store = useKommuniceringStore();
   store.error = null;
 
-  if (!hamtaBearerToken()) {
+  if (!hamtaAuthorization()) {
     store.error = OBEHORIG;
     return KlarmarkeraResultat.OBEHORIG;
   }

@@ -4,6 +4,7 @@ import { useKommuniceringStore } from "../../stores/KommuniceringStore";
 import {
   HANDLAGGNING_ID,
   anropsBody,
+  anropsToken,
   ersattning,
   knapp,
   mockResponse,
@@ -362,5 +363,53 @@ describe("Kommunicering", () => {
     await flushPromises();
     expect(fetchMock.mock.calls[1][0]).toBe("http://bff.test/api/uppgiftsbeskrivning");
     expect(useKommuniceringStore().uppgiftsbeskrivning).toBe("Hantera kommunicering från kund");
+  });
+});
+
+describe("Kommunicering — handläggarens token från portalen (KOMF-NFR-01.4/01.5)", () => {
+  it("sends the authorization prop unchanged on every call", async () => {
+    sattPortalToken("gammal:token");
+    const fetchMock = stubFetch(mockResponse({ body: underlag() }));
+
+    montera(HANDLAGGNING_ID, "Bearer handlaggare:prop");
+    await flushPromises();
+
+    expect(anropsToken(fetchMock, 0)).toBe("Bearer handlaggare:prop");
+  });
+
+  it("falls back to the portal's store when the portal passes no prop", async () => {
+    sattPortalToken("handlaggare:abc");
+    const fetchMock = stubFetch(mockResponse({ body: underlag() }));
+
+    montera();
+    await flushPromises();
+
+    expect(anropsToken(fetchMock, 0)).toBe("Bearer handlaggare:abc");
+  });
+
+  it("reloads with the new token when the prop changes", async () => {
+    const fetchMock = stubFetch(
+      mockResponse({ body: underlag() }),
+      mockResponse({ body: underlag() }),
+    );
+    const wrapper = montera(HANDLAGGNING_ID, "Bearer handlaggare:en");
+    await flushPromises();
+
+    await wrapper.setProps({ authorization: "Bearer handlaggare:tva" });
+    await flushPromises();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(anropsToken(fetchMock, 1)).toBe("Bearer handlaggare:tva");
+  });
+
+  it("leaves no token in the portal's Pinia after unmount", async () => {
+    stubFetch(mockResponse({ body: underlag() }));
+    const wrapper = montera(HANDLAGGNING_ID, "Bearer handlaggare:prop");
+    await flushPromises();
+    expect(useKommuniceringStore().authorization).toBe("Bearer handlaggare:prop");
+
+    wrapper.unmount();
+
+    expect(useKommuniceringStore().authorization).toBeNull();
   });
 });

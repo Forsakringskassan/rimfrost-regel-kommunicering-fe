@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref, useTemplateRef, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, reactive, ref, useTemplateRef, watch } from "vue";
 import {
   FButton,
   FFieldset,
@@ -24,8 +24,13 @@ import { INGA_ERSATTNINGAR, INGEN_HANDLAGGNING } from "../meddelanden";
 import { Beslutsutfall, KlarmarkeraResultat, Kommuniceringsutfall } from "../types";
 import type { ErsattningRad, KommuniceringFormular } from "../types";
 
-const { handlaggningId } = defineProps<{
+// `authorization` is the logged-in handläggare's token from the portal
+// (PORT-FR-03.6): the full Authorization header value, sent unchanged on every
+// BFF call. Declared directly on this exposed component — the portal only
+// passes it to remotes that declare it.
+const { handlaggningId, authorization } = defineProps<{
   handlaggningId?: string | null;
+  authorization?: string | null;
 }>();
 
 ensureValidatorsRegistered();
@@ -185,13 +190,18 @@ watch(
 // singleton and outlives one mount of this remote, so a stale `sparad` would
 // otherwise let Klarmarkera skip the save on the next task. The cleanup aborts
 // a superseded load before its replacement touches the store.
+// The token is watched too: the portal remounts this component when the
+// handläggare changes (PORT-FR-03.7), and should it not, data fetched with the
+// previous handläggare's token must not stay on screen.
 watch(
-  () => handlaggningId,
-  async (id, _prev, onCleanup) => {
+  () => [handlaggningId, authorization] as const,
+  async ([id, token], _prev, onCleanup) => {
     const controller = new AbortController();
     onCleanup(() => controller.abort());
 
     store.$reset();
+    // After $reset, which clears it along with the rest of the store.
+    store.authorization = token || null;
     klar.value = false;
     underlagLaddat.value = false;
     formular.ersattningar = [];
@@ -218,6 +228,14 @@ watch(
   },
   { immediate: true },
 );
+
+// Pinia is the portal's, so don't leave the token behind once this remote is gone.
+// onBeforeUnmount, not onUnmounted: when the portal remounts by changing the
+// key, Vue sets up the new instance before it runs the old one's unmounted
+// hooks, so clearing there would wipe the token the new instance just set.
+onBeforeUnmount(() => {
+  store.authorization = null;
+});
 </script>
 
 <template>

@@ -112,11 +112,16 @@ export function sattPortalToken(token: string | null): void {
 
 /**
  * The component's mount contract in one place. No pinia is created here:
- * test-setup.ts activates one before every test.
+ * test-setup.ts activates one before every test. `authorization` is the prop
+ * the portal passes (PORT-FR-03.6); left out, the component falls back to the
+ * portal's store like an older portal.
  */
-export function montera(handlaggningId: string | null = HANDLAGGNING_ID) {
+export function montera(
+  handlaggningId: string | null = HANDLAGGNING_ID,
+  authorization?: string | null,
+) {
   return mount(Kommunicering, {
-    props: { handlaggningId },
+    props: { handlaggningId, authorization },
     global: { plugins: [ValidationPlugin] },
     attachTo: document.body,
   });
