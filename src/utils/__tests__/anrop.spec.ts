@@ -53,14 +53,6 @@ describe("fetchKommunicering", () => {
     expect(anropsToken(fetchMock, 0)).toBe("Bearer handlaggare:prop");
   });
 
-  it("sends no Authorization header without any token", async () => {
-    const fetchMock = stubFetch(mockResponse({ body: underlag() }));
-
-    await fetchKommunicering(HANDLAGGNING_ID);
-
-    expect(anropsToken(fetchMock, 0)).toBeNull();
-  });
-
   it("reports a refused token as behörighet", async () => {
     stubFetch(mockResponse({ ok: false, status: 401 }));
 

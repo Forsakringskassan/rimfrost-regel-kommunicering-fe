@@ -31,7 +31,7 @@ CORS_ORIGINS=http://localhost:3034 ./mvnw quarkus:dev
 
 Standalone there is no portal, so set `VITE_DEV_HANDLAGGNING_ID` to a handlaggningId with an
 open kommunicering task, and `VITE_DEV_BEARER_TOKEN` to any token the BFF accepts (the portal's
-dev tokens look like `<typId>:<varde>`). Without a token, the calls are refused and the app
+dev tokens look like `<typId>:<varde>`). Without a token, no call is made and the app
 shows a behörighet message.
 
 | Command | What it does |
@@ -71,8 +71,8 @@ every call to the BFF carries an `Authorization` header, which the BFF passes on
 passes the logged-in handläggare's token as the `authorization` prop, a complete header value
 that is sent unchanged. Portals from before that prop existed are still supported: without it,
 the app falls back to `bearerToken` in the portal's `handlaggareStore` through the shared Pinia
-instance (see `src/utils/bearerToken.ts`). If no token is found, the calls are refused and the
-app shows a behörighet message rather than failing silently.
+instance (see `src/utils/bearerToken.ts`). If no token is found, no call is made and the app
+shows a behörighet message rather than failing silently.
 
 ## Configuration
 
@@ -110,7 +110,8 @@ its host.
 
 ## What it calls
 
-Every call sends `Authorization: Bearer <token>`.
+Every call sends the `Authorization` header: the portal's `authorization` prop unchanged, or
+`Bearer <token>` from the fallback or the dev token.
 
 | Method | Path | Body | Purpose |
 |---|---|---|---|

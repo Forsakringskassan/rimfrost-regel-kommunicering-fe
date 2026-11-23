@@ -381,10 +381,20 @@ describe("Kommunicering — handläggarens token från portalen (KOMF-NFR-01.4/0
     sattPortalToken("handlaggare:abc");
     const fetchMock = stubFetch(mockResponse({ body: underlag() }));
 
-    montera();
+    montera(HANDLAGGNING_ID, null);
     await flushPromises();
 
     expect(anropsToken(fetchMock, 0)).toBe("Bearer handlaggare:abc");
+  });
+
+  it("makes no call and shows the behörighet message without any token", async () => {
+    const fetchMock = stubFetch();
+
+    const wrapper = montera(HANDLAGGNING_ID, null);
+    await flushPromises();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain("behörighet");
   });
 
   it("reloads with the new token when the prop changes", async () => {

@@ -28,7 +28,7 @@ function portalensToken(): string {
  * Null when none has a token.
  */
 export function hamtaAuthorization(): string | null {
-  const fromProp = useKommuniceringStore().authorization;
+  const fromProp = getActivePinia() ? useKommuniceringStore().authorization : null;
   if (fromProp) {
     return fromProp;
   }

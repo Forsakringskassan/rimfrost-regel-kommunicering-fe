@@ -93,8 +93,9 @@ BFF:n skickar vidare `Authorization`. Därför lägger `bffClient.ts` på token 
    bort när alla portaler skickar propen.
 3. Fristående: `VITE_DEV_BEARER_TOKEN`, som bara läses i utvecklingsbyggen, med `Bearer ` framför.
 
-Saknas token skickas inget `done`-anrop. Övriga anrop skickas ändå och nekas med 401, som visas
-som saknad behörighet.
+Saknas token helt hämtas inget underlag och inga anrop görs. `Kommunicering.vue` visar då
+direkt beskedet om saknad behörighet, och `done` kontrollerar token igen innan det skickas. Nekar
+BFF:n en token (401/403) visas samma besked.
 
 ### Version av `@module-federation/vite`
 

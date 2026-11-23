@@ -20,7 +20,8 @@ import { tillRad } from "../utils/formular";
 import { slutforKommunicering } from "../utils/slutforKommunicering";
 import { sparaKommunicering } from "../utils/sparaKommunicering";
 import { valideraForKlarmarkering, valideraForSpara } from "../utils/validering";
-import { INGA_ERSATTNINGAR, INGEN_HANDLAGGNING } from "../meddelanden";
+import { hamtaAuthorization } from "../utils/bearerToken";
+import { INGA_ERSATTNINGAR, INGEN_HANDLAGGNING, OBEHORIG } from "../meddelanden";
 import { Beslutsutfall, KlarmarkeraResultat, Kommuniceringsutfall } from "../types";
 import type { ErsattningRad, KommuniceringFormular } from "../types";
 
@@ -212,6 +213,13 @@ watch(
 
     if (!id) {
       store.error = INGEN_HANDLAGGNING;
+      return;
+    }
+
+    // No token from the prop, the portal's store or the dev env: nothing would
+    // be accepted, so say so instead of sending calls to be refused with 401.
+    if (!hamtaAuthorization()) {
+      store.error = OBEHORIG;
       return;
     }
 
