@@ -42,8 +42,9 @@ och tolkas först när PATCH-bodyn byggs.
 | Utvecklingsport | 3034 |
 
 `@fkui/logic` delas för att remoten ska läsa portalens validerarregister, och
-`src/config/validation.ts` registrerar dessutom validerarna själv. `pinia` delas också för att
-remoten ska kunna läsa portalens token.
+`src/config/validation.ts` registrerar dessutom validerarna själv. `pinia` delas också så att
+remoten kan läsa portalens token från äldre portaler som inte skickar `authorization`-propen
+(KOMF-NFR-01.5).
 
 ## API
 
@@ -80,11 +81,32 @@ med ett `JA`.
 
 Regeltjänsten kontrollerar handläggarens identitet och åtkomst till uppgiften vid varje anrop, och
 BFF:n skickar vidare `Authorization`. Därför lägger `bffClient.ts` på token i alla anrop.
-Portalen skickar bara `handlaggningId` som prop. Den inloggade handläggarens token ligger i
-portalens Pinia-store `handlaggareStore` (`bearerToken`). Eftersom Pinia delas som singleton läser
-`bearerToken.ts` storens state via id, utan att importera portalens kod. Fristående används
-`VITE_DEV_BEARER_TOKEN`, som bara läses i utvecklingsbyggen. Saknas token skickas inget
-`done`-anrop. Övriga anrop skickas ändå och nekas med 401, som visas som saknad behörighet.
+`hamtaAuthorization()` i `bearerToken.ts` väljer headervärdet i den här ordningen:
+
+1. Propen `authorization` från portalen (PORT-FR-03.6, KOMF-NFR-01.4). Den är redan ett färdigt
+   headervärde (`Bearer <typId>:<varde>`) och skickas oförändrad. Portalen ger den bara till remotes
+   som deklarerar propen, och monterar om remoten när handläggaren byts eller loggar ut
+   (PORT-FR-03.7). `Kommunicering.vue` lägger propen i storen efter varje `$reset()` och tömmer
+   den när komponenten tas bort, eftersom Pinia är portalens och lever kvar.
+2. Reserv för portaler före FKPOC-1494 (KOMF-NFR-01.5): `bearerToken` i portalens Pinia-store
+   `handlaggareStore`, läst via id utan att importera portalens kod, med `Bearer ` framför. Tas
+   bort när alla portaler skickar propen.
+3. Fristående: `VITE_DEV_BEARER_TOKEN`, som bara läses i utvecklingsbyggen, med `Bearer ` framför.
+
+Saknas token skickas inget `done`-anrop. Övriga anrop skickas ändå och nekas med 401, som visas
+som saknad behörighet.
+
+### Version av `@module-federation/vite`
+
+`@module-federation/vite` är låst till exakt samma version som `rimfrost-portal-handlaggare`
+(1.15.2, runtime 2.4.0), och `renovate.json` stänger av Renovate för paketet (KOMF-NFR-01.6).
+
+Bakgrund (FKPOC-1501, samma fel som FKPOC-1499 i rtf-manuell-komplettering-fe): med 1.23.x
+(runtime 2.9.x) kraschar remoten i portalen med
+`Cannot read properties of undefined (reading 'provider')`. Den nyare versionens
+loadShare-proxy för `@fkui/logic` fyller i exporterna först efter share-förhandlingen, men
+`@fkui/vue` läser `TranslationService.provider` redan när modulen laddas. Versionen ska därför
+uppgraderas samtidigt i portalen och alla remotes, aldrig i en remote för sig.
 
 ### Validering i två lager
 
@@ -129,7 +151,7 @@ komponenttester som monterar `Kommunicering` med `@vue/test-utils`.
 
 | Begränsning | Föreslagen åtgärd |
 |---|---|
-| Remoten läser portalens `handlaggareStore` via id, ett outtalat kontrakt | Låt portalen skicka token som prop eller via ett gemensamt auth-paket |
+| Reserven läser portalens `handlaggareStore` via id, ett outtalat kontrakt | Ta bort reserven när alla portaler skickar `authorization`-propen (FKPOC-1494) |
 | `FU` visas som "FU"; betydelsen är inte dokumenterad i `Beslutsutfall` | Bekräfta etiketten med verksamheten |
 | Statuskoder som 404 och 422 från regeltjänsten visas som generellt fel | Ge egna meddelanden om handläggarna behöver skilja på dem |
 | Mellan `PATCH`, `PATCH .../kommuniceringsutfall` och `POST .../done` finns fönster där en del är sparad men uppgiften inte slutförd | Bedöm om ramverket bör erbjuda ett kombinerat anrop |

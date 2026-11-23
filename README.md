@@ -61,17 +61,18 @@ segment of the task's `url` in the OUL, which for this rule is `kommunicering`:
 }
 ```
 
-The portal passes `handlaggningId` as a prop and gets a `task-done` event on `window` when the
+The portal passes `handlaggningId` and `authorization` as props and gets a `task-done` event on `window` when the
 task is completed.
 
 ### The bearer token
 
 The rule service checks the handläggare's identity and access to the task on every call, so
-every call to the BFF carries an `Authorization` header, which the BFF passes on. The portal does
-not pass a token as a prop, so the app reads `bearerToken` from the portal's `handlaggareStore`
-through the shared Pinia instance (see `src/utils/bearerToken.ts`). If the portal renames that
-store or field, the calls are refused and the app shows a behörighet message rather than failing
-silently.
+every call to the BFF carries an `Authorization` header, which the BFF passes on. The portal
+passes the logged-in handläggare's token as the `authorization` prop, a complete header value
+that is sent unchanged. Portals from before that prop existed are still supported: without it,
+the app falls back to `bearerToken` in the portal's `handlaggareStore` through the shared Pinia
+instance (see `src/utils/bearerToken.ts`). If no token is found, the calls are refused and the
+app shows a behörighet message rather than failing silently.
 
 ## Configuration
 
@@ -138,7 +139,8 @@ them, and an avslagsanledning is sent only with `NEJ`.
 ## Tech stack
 
 - Vue 3 + TypeScript
-- Vite with `@module-federation/vite`
+- Vite with `@module-federation/vite` (pinned to the portal's version, upgrade only together
+  with the portal and all remotes; see [docs/teknisk-spec.md](docs/teknisk-spec.md))
 - Pinia for state
 - FKUI design system
 - Vitest + happy-dom for tests
