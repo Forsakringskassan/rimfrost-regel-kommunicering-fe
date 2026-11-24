@@ -5,6 +5,7 @@ import { env } from "./config/env";
 
 const props = defineProps<{
   handlaggningId?: string | null;
+  authorization?: string | null;
 }>();
 
 const isDev = import.meta.env.DEV;
@@ -19,8 +20,8 @@ const handlaggningId = props.handlaggningId || env.devHandlaggningId;
       <f-page-header />
     </template>
     <f-layout-left-panel>
-      <Kommunicering :handlaggning-id="handlaggningId" />
+      <Kommunicering :handlaggning-id="handlaggningId" :authorization="props.authorization" />
     </f-layout-left-panel>
   </f-layout-application-template>
-  <Kommunicering v-else :handlaggning-id="handlaggningId" />
+  <Kommunicering v-else :handlaggning-id="handlaggningId" :authorization="props.authorization" />
 </template>

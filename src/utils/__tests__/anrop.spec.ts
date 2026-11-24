@@ -43,6 +43,16 @@ describe("fetchKommunicering", () => {
     expect(anropsToken(fetchMock, 0)).toBe("Bearer handlaggare:abc");
   });
 
+  it("sends the authorization prop's value unchanged, ahead of the portal's store", async () => {
+    sattPortalToken("gammal:token");
+    useKommuniceringStore().authorization = "Bearer handlaggare:prop";
+    const fetchMock = stubFetch(mockResponse({ body: underlag() }));
+
+    await fetchKommunicering(HANDLAGGNING_ID);
+
+    expect(anropsToken(fetchMock, 0)).toBe("Bearer handlaggare:prop");
+  });
+
   it("reports a refused token as behörighet", async () => {
     stubFetch(mockResponse({ ok: false, status: 401 }));
 
@@ -182,6 +192,14 @@ describe("klarmarkeraKommunicering", () => {
     expect((lyssnare.mock.calls[0][0] as CustomEvent).detail).toEqual({
       handlaggningId: HANDLAGGNING_ID,
     });
+  });
+
+  it("completes with only the authorization prop's token", async () => {
+    useKommuniceringStore().authorization = "Bearer handlaggare:prop";
+    const fetchMock = stubFetch(mockResponse({ status: 204 }));
+
+    expect(await klarmarkeraKommunicering(HANDLAGGNING_ID)).toBe(KlarmarkeraResultat.KLAR);
+    expect(anropsToken(fetchMock, 0)).toBe("Bearer handlaggare:prop");
   });
 
   it("does not call the BFF without a token", async () => {

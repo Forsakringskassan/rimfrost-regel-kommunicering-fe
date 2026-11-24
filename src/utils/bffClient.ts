@@ -1,5 +1,5 @@
 import { env, ensureEnvLoaded } from "../config/env";
-import { hamtaBearerToken } from "./bearerToken";
+import { hamtaAuthorization } from "./bearerToken";
 
 /**
  * Every call to the BFF goes through here, so the base URL and the token have
@@ -11,9 +11,9 @@ import { hamtaBearerToken } from "./bearerToken";
 export async function bffFetch(path: string, init: RequestInit = {}): Promise<Response> {
   await ensureEnvLoaded();
   const headers = new Headers(init.headers);
-  const token = hamtaBearerToken();
-  if (token && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${token}`);
+  const authorization = hamtaAuthorization();
+  if (authorization && !headers.has("Authorization")) {
+    headers.set("Authorization", authorization);
   }
   return fetch(`${env.bffUrl}${path}`, { ...init, headers });
 }

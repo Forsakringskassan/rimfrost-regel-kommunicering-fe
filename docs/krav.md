@@ -85,6 +85,15 @@ handläggarportalen.
   emot handläggningens identifierare som indata.
 - **KOMF-NFR-01.2** Mikrofrontenden ska kunna köras fristående för utveckling.
 - **KOMF-NFR-01.3** Mikrofrontenden ska kunna peka mot olika BFF-instanser utan att byggas om.
+- **KOMF-NFR-01.4** Mikrofrontenden ska ta emot den inloggade handläggarens token från
+  värdapplikationen som prop (`authorization`, ett färdigt headervärde) och skicka den oförändrad i
+  `Authorization`-headern på alla anrop till Kommunicering BFF.
+- **KOMF-NFR-01.5** Skickar värdapplikationen ingen `authorization`-prop ska mikrofrontenden under
+  en övergångsperiod läsa token ur portalens `handlaggareStore`. Reserven tas bort när alla
+  portaler som används skickar propen.
+- **KOMF-NFR-01.6** Mikrofrontenden ska byggas med samma version av `@module-federation/vite`
+  som handläggarportalen, så att delade moduler (`@fkui/vue`, `@fkui/logic`) fungerar när den
+  monteras. Versionen uppgraderas bara samtidigt i portalen och alla remotes.
 
 ### KOMF-NFR-02 — Tillgänglighet
 
