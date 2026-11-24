@@ -2,6 +2,17 @@
 
 Changelog of rimfrost-regel-kommunicering-fe.
 
+## 0.0.2 (2026-11-24)
+
+### Bug Fixes
+
+-  address review comments (FKPOC-1501) ([2e27c](https://github.com/Forsakringskassan/rimfrost-regel-kommunicering-fe/commit/2e27c861dc56152) LisaWedin_Ductus)  
+-  pin @module-federation/vite to the portal's 1.15.2 (FKPOC-1501) ([9f509](https://github.com/Forsakringskassan/rimfrost-regel-kommunicering-fe/commit/9f5099d4611ce5e) LisaWedin_Ductus)  
+-  take the handläggare's token as the authorization prop from the portal (FKPOC-1501) ([411aa](https://github.com/Forsakringskassan/rimfrost-regel-kommunicering-fe/commit/411aa8e9053f77a) LisaWedin_Ductus)  
+
+### Other changes
+
+
 ## 0.0.1 (2026-11-19)
 
 ### Bug Fixes
